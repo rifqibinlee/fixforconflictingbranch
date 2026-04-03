@@ -4037,9 +4037,36 @@
         function add3dSiteMarkers() {
             if (!cesiumViewer || !siteDataCache) return;
 
+            const TOWER_HEIGHT = 40;       // meters
+            const POLE_RADIUS  = 0.4;      // meters
+            const PANEL_WIDTH  = 0.6;      // meters
+            const PANEL_HEIGHT = 1.8;      // meters
+            const PANEL_DEPTH  = 0.25;     // meters
+            const PANEL_OFFSET = 1.2;      // meters from center
+            const BEAM_LENGTH  = 300;      // meters (visual beam length)
+            const BEAM_WIDTH_DEG = 30;     // degrees (visual beam half-angle)
+
+            // Tech colors for sector beams
+            const TECH_COLORS = {
+                '5G': Cesium.Color.YELLOW.withAlpha(0.25),
+                '4G': Cesium.Color.CORNFLOWERBLUE.withAlpha(0.20),
+                '3G': Cesium.Color.ORANGE.withAlpha(0.18),
+                '2G': Cesium.Color.GRAY.withAlpha(0.15)
+            };
+
+            const TECH_BEAM_HEIGHTS = {
+                '5G': { bottom: TOWER_HEIGHT - 2, top: TOWER_HEIGHT + 8 },
+                '4G': { bottom: TOWER_HEIGHT - 4, top: TOWER_HEIGHT + 6 },
+                '3G': { bottom: TOWER_HEIGHT - 5, top: TOWER_HEIGHT + 4 },
+                '2G': { bottom: TOWER_HEIGHT - 6, top: TOWER_HEIGHT + 3 }
+            };
+
             siteDataCache.forEach(site => {
                 if (!site.lat || !site.lng) return;
+                const lng = parseFloat(site.lng);
+                const lat = parseFloat(site.lat);
 
+                // --- Congestion check ---
                 let isCongested = false;
                 if (site.sectors) {
                     const areaStr = String(site.area_target || '').toLowerCase();
@@ -4051,28 +4078,179 @@
                     }
                 }
 
+                const towerColor = isCongested
+                    ? Cesium.Color.fromCssColorString('#dc2626')
+                    : Cesium.Color.fromCssColorString('#6b7280');
+                const panelColor = isCongested
+                    ? Cesium.Color.fromCssColorString('#fca5a5')
+                    : Cesium.Color.fromCssColorString('#e5e7eb');
+
+                // ====== TOWER POLE (cylinder) ======
                 cesiumViewer.entities.add({
-                    position: Cesium.Cartesian3.fromDegrees(parseFloat(site.lng), parseFloat(site.lat), 50),
+                    position: Cesium.Cartesian3.fromDegrees(lng, lat, TOWER_HEIGHT / 2),
+                    cylinder: {
+                        length: TOWER_HEIGHT,
+                        topRadius: POLE_RADIUS * 0.6,
+                        bottomRadius: POLE_RADIUS,
+                        material: towerColor,
+                        heightReference: Cesium.HeightReference.RELATIVE_TO_GROUND
+                    }
+                });
+
+                // ====== LATTICE CROSS-BRACES (visual detail) ======
+                for (let h = 5; h < TOWER_HEIGHT; h += 8) {
+                    cesiumViewer.entities.add({
+                        position: Cesium.Cartesian3.fromDegrees(lng, lat, h),
+                        cylinder: {
+                            length: 0.3,
+                            topRadius: POLE_RADIUS * 1.8,
+                            bottomRadius: POLE_RADIUS * 1.8,
+                            material: towerColor.withAlpha(0.6),
+                            heightReference: Cesium.HeightReference.RELATIVE_TO_GROUND
+                        }
+                    });
+                }
+
+                // ====== PLATFORM AT TOP ======
+                cesiumViewer.entities.add({
+                    position: Cesium.Cartesian3.fromDegrees(lng, lat, TOWER_HEIGHT),
+                    cylinder: {
+                        length: 0.4,
+                        topRadius: 2.0,
+                        bottomRadius: 2.0,
+                        material: towerColor.withAlpha(0.8),
+                        heightReference: Cesium.HeightReference.RELATIVE_TO_GROUND
+                    }
+                });
+
+                // ====== ANTENNA PANELS & SECTOR BEAMS ======
+                // Collect unique azimuths from coverage data
+                const azimuths = new Set();
+                if (site.coverage && site.coverage.length > 0) {
+                    site.coverage.forEach(sec => azimuths.add(parseFloat(sec.az)));
+                } else if (site.sectors && site.sectors.length > 0) {
+                    // Fallback: distribute evenly if no coverage data
+                    const count = Math.min(site.sectors.length, 3);
+                    for (let i = 0; i < count; i++) azimuths.add(i * (360 / count));
+                } else {
+                    // Default 3-sector
+                    [0, 120, 240].forEach(a => azimuths.add(a));
+                }
+
+                azimuths.forEach(az => {
+                    const azRad = Cesium.Math.toRadians(az);
+
+                    // Offset the panel from tower center
+                    const panelLng = lng + (PANEL_OFFSET / 111320) * Math.sin(azRad) / Math.cos(Cesium.Math.toRadians(lat));
+                    const panelLat = lat + (PANEL_OFFSET / 111320) * Math.cos(azRad);
+
+                    // Antenna panel box
+                    cesiumViewer.entities.add({
+                        position: Cesium.Cartesian3.fromDegrees(panelLng, panelLat, TOWER_HEIGHT + 0.5),
+                        box: {
+                            dimensions: new Cesium.Cartesian3(PANEL_WIDTH, PANEL_DEPTH, PANEL_HEIGHT),
+                            material: panelColor,
+                            heightReference: Cesium.HeightReference.RELATIVE_TO_GROUND
+                        },
+                        orientation: Cesium.Transforms.headingPitchRollQuaternion(
+                            Cesium.Cartesian3.fromDegrees(panelLng, panelLat, TOWER_HEIGHT + 0.5),
+                            new Cesium.HeadingPitchRoll(Cesium.Math.toRadians(az), 0, 0)
+                        )
+                    });
+                });
+
+                // ====== SECTOR BEAMS FROM COVERAGE DATA ======
+                if (site.coverage && site.coverage.length > 0) {
+                    const azGroups = {};
+                    site.coverage.forEach(sec => {
+                        const a = parseFloat(sec.az);
+                        if (!azGroups[a]) azGroups[a] = [];
+                        azGroups[a].push(sec);
+                    });
+
+                    Object.entries(azGroups).forEach(([azStr, sectors]) => {
+                        const az = parseFloat(azStr);
+                        sectors.forEach(sec => {
+                            const tech = sec.tech || '4G';
+                            const beamColor = TECH_COLORS[tech] || TECH_COLORS['4G'];
+                            const heights = TECH_BEAM_HEIGHTS[tech] || TECH_BEAM_HEIGHTS['4G'];
+                            const bw = (sec.bw || 65) / 2;
+                            const beamLen = Math.min(sec.rad || BEAM_LENGTH, 500);
+
+                            // Create a fan of points for the beam polygon
+                            const beamPoints = [];
+                            // Origin at tower top
+                            beamPoints.push(Cesium.Cartesian3.fromDegrees(lng, lat, heights.top));
+
+                            const steps = 8;
+                            for (let i = 0; i <= steps; i++) {
+                                const angle = az - bw + (2 * bw * i / steps);
+                                const angleRad = Cesium.Math.toRadians(angle);
+                                const endLng = lng + (beamLen / 111320) * Math.sin(angleRad) / Math.cos(Cesium.Math.toRadians(lat));
+                                const endLat = lat + (beamLen / 111320) * Math.cos(angleRad);
+                                beamPoints.push(Cesium.Cartesian3.fromDegrees(endLng, endLat, heights.bottom));
+                            }
+
+                            cesiumViewer.entities.add({
+                                polygon: {
+                                    hierarchy: new Cesium.PolygonHierarchy(beamPoints),
+                                    perPositionHeight: true,
+                                    material: beamColor,
+                                    outline: true,
+                                    outlineColor: beamColor.withAlpha(0.4),
+                                    outlineWidth: 1
+                                }
+                            });
+                        });
+                    });
+                }
+
+                // ====== AVIATION WARNING LIGHT ======
+                cesiumViewer.entities.add({
+                    position: Cesium.Cartesian3.fromDegrees(lng, lat, TOWER_HEIGHT + 2.5),
                     point: {
-                        pixelSize: 8,
-                        color: isCongested ? Cesium.Color.fromCssColorString('#dc2626') : Cesium.Color.fromCssColorString('#2563eb'),
+                        pixelSize: isCongested ? 7 : 5,
+                        color: isCongested
+                            ? Cesium.Color.RED
+                            : Cesium.Color.fromCssColorString('#22c55e'),
                         outlineColor: Cesium.Color.WHITE,
                         outlineWidth: 1,
-                        heightReference: Cesium.HeightReference.RELATIVE_TO_GROUND
-                    },
+                        heightReference: Cesium.HeightReference.RELATIVE_TO_GROUND,
+                        scaleByDistance: new Cesium.NearFarScalar(100, 1.5, 50000, 0.3)
+                    }
+                });
+
+                // ====== SITE LABEL ======
+                cesiumViewer.entities.add({
+                    position: Cesium.Cartesian3.fromDegrees(lng, lat, TOWER_HEIGHT + 5),
                     label: {
                         text: site.site_id || '',
-                        font: '11px sans-serif',
+                        font: 'bold 12px sans-serif',
                         fillColor: Cesium.Color.WHITE,
-                        outlineColor: Cesium.Color.BLACK,
-                        outlineWidth: 2,
+                        outlineColor: isCongested
+                            ? Cesium.Color.fromCssColorString('#991b1b')
+                            : Cesium.Color.fromCssColorString('#1e3a8a'),
+                        outlineWidth: 3,
                         style: Cesium.LabelStyle.FILL_AND_OUTLINE,
                         verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
-                        pixelOffset: new Cesium.Cartesian2(0, -12),
-                        distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 15000),
-                        heightReference: Cesium.HeightReference.RELATIVE_TO_GROUND
+                        pixelOffset: new Cesium.Cartesian2(0, -8),
+                        distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 20000),
+                        heightReference: Cesium.HeightReference.RELATIVE_TO_GROUND,
+                        scaleByDistance: new Cesium.NearFarScalar(200, 1.0, 30000, 0.3),
+                        showBackground: true,
+                        backgroundColor: isCongested
+                            ? Cesium.Color.fromCssColorString('#dc2626').withAlpha(0.8)
+                            : Cesium.Color.fromCssColorString('#1d4ed8').withAlpha(0.8),
+                        backgroundPadding: new Cesium.Cartesian2(6, 4)
                     },
-                    description: '<b>' + (site.site_id || '') + '</b><br>' + (site.site_name || '')
+                    description:
+                        '<table style="width:100%;border-collapse:collapse;font-family:sans-serif;">' +
+                        '<tr><td style="padding:6px;font-weight:bold;color:#1d4ed8;">Site ID</td><td style="padding:6px;">' + (site.site_id || '-') + '</td></tr>' +
+                        '<tr><td style="padding:6px;font-weight:bold;color:#1d4ed8;">Name</td><td style="padding:6px;">' + (site.site_name || '-') + '</td></tr>' +
+                        '<tr><td style="padding:6px;font-weight:bold;color:#1d4ed8;">Region</td><td style="padding:6px;">' + (site.region || '-') + '</td></tr>' +
+                        '<tr><td style="padding:6px;font-weight:bold;color:#1d4ed8;">Status</td><td style="padding:6px;color:' + (isCongested ? '#dc2626;font-weight:bold' : '#059669') + ';">' + (isCongested ? 'CONGESTED' : 'Normal') + '</td></tr>' +
+                        (site.sectors ? '<tr><td style="padding:6px;font-weight:bold;color:#1d4ed8;">Sectors</td><td style="padding:6px;">' + site.sectors.length + '</td></tr>' : '') +
+                        '</table>'
                 });
             });
         }
