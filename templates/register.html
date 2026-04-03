@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register - Network Analytics Platform</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body class="bg-gradient-to-br from-green-500 via-teal-500 to-blue-500 min-h-screen flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">
+        <div class="text-center mb-8">
+            <i class="fas fa-user-plus text-6xl text-green-600 mb-4"></i>
+            <h1 class="text-3xl font-bold text-gray-800">Create Account</h1>
+            <p class="text-gray-600 mt-2">Join Network Analytics Platform</p>
+        </div>
+        
+        <form id="registerForm" class="space-y-4">
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-2">Username</label>
+                <input type="text" id="username" name="username" required
+                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none">
+            </div>
+            
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-2">Full Name</label>
+                <input type="text" id="full_name" name="full_name" required
+                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none">
+            </div>
+            
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-2">Email</label>
+                <div class="flex">
+                    <input type="text" id="emailPrefix" name="emailPrefix" required
+                           class="w-full px-4 py-3 border border-gray-300 rounded-l-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none"
+                           placeholder="yourname">
+                    <span class="flex items-center px-3 bg-gray-100 border border-l-0 border-gray-300 rounded-r-lg text-sm font-semibold text-gray-500 whitespace-nowrap">@celcomdigi.com</span>
+                </div>
+                <input type="hidden" id="email" name="email">
+            </div>
+            
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-2">Password</label>
+                <input type="password" id="password" name="password" required
+                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none"
+                       placeholder="Create a strong password">
+                <div class="mt-2 space-y-1" id="passwordCriteria">
+                    <p class="text-xs font-semibold text-gray-500 mb-1">Password must contain:</p>
+                    <p id="crit-length"  class="text-xs flex items-center gap-1.5 text-red-500"><i class="fas fa-times-circle"></i> At least 10 characters</p>
+                    <p id="crit-upper"   class="text-xs flex items-center gap-1.5 text-red-500"><i class="fas fa-times-circle"></i> One uppercase letter</p>
+                    <p id="crit-number"  class="text-xs flex items-center gap-1.5 text-red-500"><i class="fas fa-times-circle"></i> One number</p>
+                    <p id="crit-special" class="text-xs flex items-center gap-1.5 text-red-500"><i class="fas fa-times-circle"></i> One special character (!@#$%^&amp;*...)</p>
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-2">Confirm Password</label>
+                <input type="password" id="confirm_password" name="confirm_password" required
+                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none"
+                       placeholder="Re-enter your password">
+                <p id="crit-match" class="text-xs flex items-center gap-1.5 text-red-500 mt-2 hidden"><i class="fas fa-times-circle"></i> Passwords do not match</p>
+            </div>
+            
+            <div id="errorMessage" class="hidden bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm"></div>
+            <div id="successMessage" class="hidden bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg text-sm"></div>
+            
+            <button type="submit" id="registerBtn"
+                    class="w-full bg-gradient-to-r from-green-600 to-teal-600 text-white font-bold py-3 px-4 rounded-lg hover:from-green-700 hover:to-teal-700 transition transform hover:scale-105">
+                <i class="fas fa-user-plus mr-2"></i>Create Account
+            </button>
+        </form>
+        
+        <div class="mt-6 text-center">
+            <p class="text-gray-600">Already have an account? 
+                <a href="/login" class="text-green-600 hover:text-green-700 font-semibold">Sign in here</a>
+            </p>
+        </div>
+    </div>
+    
+    <script>
+        // Live password criteria checker
+        document.getElementById('password').addEventListener('input', function() {
+            const val = this.value;
+            setCrit('crit-length',  val.length >= 10);
+            setCrit('crit-upper',   /[A-Z]/.test(val));
+            setCrit('crit-number',  /[0-9]/.test(val));
+            setCrit('crit-special', /[^A-Za-z0-9]/.test(val));
+            checkMatch();
+        });
+
+        document.getElementById('confirm_password').addEventListener('input', checkMatch);
+
+        function checkMatch() {
+            const pw  = document.getElementById('password').value;
+            const cpw = document.getElementById('confirm_password').value;
+            const el  = document.getElementById('crit-match');
+            if (!cpw) { el.classList.add('hidden'); return; }
+            if (pw === cpw) {
+                el.className = 'text-xs flex items-center gap-1.5 text-green-600 mt-2';
+                el.innerHTML = '<i class="fas fa-check-circle"></i> Passwords match';
+                el.classList.remove('hidden');
+            } else {
+                el.className = 'text-xs flex items-center gap-1.5 text-red-500 mt-2';
+                el.innerHTML = '<i class="fas fa-times-circle"></i> Passwords do not match';
+                el.classList.remove('hidden');
+            }
+        }
+
+        function setCrit(id, passed) {
+            const el = document.getElementById(id);
+            if (passed) {
+                el.className = 'text-xs flex items-center gap-1.5 text-green-600';
+                el.querySelector('i').className = 'fas fa-check-circle';
+            } else {
+                el.className = 'text-xs flex items-center gap-1.5 text-red-500';
+                el.querySelector('i').className = 'fas fa-times-circle';
+            }
+        }
+
+        document.getElementById('registerForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const btn = document.getElementById('registerBtn');
+            const errorDiv = document.getElementById('errorMessage');
+            const successDiv = document.getElementById('successMessage');
+
+            // Assemble full email
+            const prefix = document.getElementById('emailPrefix').value.trim();
+            if (!prefix) {
+                errorDiv.textContent = 'Please enter your email prefix.';
+                errorDiv.classList.remove('hidden');
+                return;
+            }
+            document.getElementById('email').value = prefix + '@celcomdigi.com';
+
+            // Validate password criteria
+            const password = document.getElementById('password').value;
+            if (password.length < 10) {
+                errorDiv.textContent = 'Password must be at least 10 characters.';
+                errorDiv.classList.remove('hidden');
+                return;
+            }
+            if (!/[A-Z]/.test(password)) {
+                errorDiv.textContent = 'Password must contain at least one uppercase letter.';
+                errorDiv.classList.remove('hidden');
+                return;
+            }
+            if (!/[0-9]/.test(password)) {
+                errorDiv.textContent = 'Password must contain at least one number.';
+                errorDiv.classList.remove('hidden');
+                return;
+            }
+            if (!/[^A-Za-z0-9]/.test(password)) {
+                errorDiv.textContent = 'Password must contain at least one special character.';
+                errorDiv.classList.remove('hidden');
+                return;
+            }
+
+            const confirmPassword = document.getElementById('confirm_password').value;
+            if (password !== confirmPassword) {
+                errorDiv.textContent = 'Passwords do not match.';
+                errorDiv.classList.remove('hidden');
+                return;
+            }
+
+            const formData = {
+                username: document.getElementById('username').value,
+                full_name: document.getElementById('full_name').value,
+                email: document.getElementById('email').value,
+                password: password,
+                role: 'Staff'
+            };
+
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Creating account...';
+            errorDiv.classList.add('hidden');
+            successDiv.classList.add('hidden');
+            
+            try {
+                const response = await fetch('/register', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(formData)
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    successDiv.textContent = data.message + ' Redirecting to login...';
+                    successDiv.classList.remove('hidden');
+                    setTimeout(() => {
+                        window.location.href = data.redirect || '/login';
+                    }, 2000);
+                } else {
+                    errorDiv.textContent = data.message || 'Registration failed';
+                    errorDiv.classList.remove('hidden');
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-user-plus mr-2"></i>Create Account';
+                }
+            } catch (error) {
+                errorDiv.textContent = 'Connection error. Please try again.';
+                errorDiv.classList.remove('hidden');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-user-plus mr-2"></i>Create Account';
+            }
+        });
+    </script>
+</body>
+</html>

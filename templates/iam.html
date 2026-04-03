@@ -1,0 +1,1580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Management - NetAlytics</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.11.5/css/jquery.dataTables.min.css">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
+    <style>
+        .active-filter { background: #2563eb; color: white; }
+        .inactive-filter { background: #f3f4f6; color: #4b5563; }
+        .inactive-filter:hover { background: #e5e7eb; }
+        .activity-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 12px 14px;
+            border-radius: 10px;
+            border: 1px solid #f1f5f9;
+            background: #fafafa;
+            transition: background 0.15s;
+        }
+        .activity-item:hover { background: #f0f4ff; border-color: #dbeafe; }
+        .activity-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            font-size: 14px;
+        }
+        .icon-upload { background: #dbeafe; color: #2563eb; }
+        .icon-annotation { background: #dcfce7; color: #16a34a; }
+        .icon-message { background: #fef9c3; color: #ca8a04; }
+        .role-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .role-admin { background: #dc2626; color: white; }
+        .role-planner { background: #2563eb; color: white; }
+        .role-staff { background: #059669; color: white; }
+        .status-active { color: #059669; }
+        .status-inactive { color: #dc2626; }
+    </style>
+</head>
+
+<body class="bg-gray-50 min-h-screen pt-32">
+    <nav class="fixed top-0 left-0 w-full z-50 bg-gradient-to-r from-blue-600 to-purple-600 text-white p-6 shadow-lg">
+        <div class="container mx-auto flex justify-between items-center">
+            <div>
+                <h1 class="text-3xl font-bold flex items-center gap-3">
+                    <i class="fas fa-shield-alt"></i>
+                    User Management
+                </h1>
+            </div>
+            <div class="flex items-center gap-3">
+                <!-- Messages Button -->
+                <button onclick="openMessagingModal()" 
+                        class="bg-white/20 hover:bg-white/30 text-white p-3 rounded-lg transition-all duration-300 shadow-lg hover:scale-110 relative"
+                        title="Messages">
+                    <i class="fas fa-envelope text-xl"></i>
+                    <span id="navUnreadBadge" class="hidden absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1 font-bold">0</span>
+                </button>
+
+                <!-- Review Button -->
+                <button onclick="openReviewModal()"
+                        class="bg-white/20 hover:bg-white/30 text-white p-3 rounded-lg transition-all duration-300 shadow-lg hover:scale-110"
+                        title="Submit a Review">
+                    <i class="fas fa-star text-xl"></i>
+                </button>
+
+                <!-- View Coverage Map Button -->
+                <a href="/map" target="_blank" 
+                class="bg-white/20 hover:bg-white/30 text-white p-3 rounded-lg transition-all duration-300 shadow-lg hover:scale-110"
+                title="View Coverage Map">
+                    <i class="fas fa-map-marked-alt text-xl"></i>
+                </a>
+
+                <!-- Menu Button -->
+                <div class="relative">
+                    <button id="menuBtn" 
+                            class="bg-white/20 hover:bg-white/30 text-white p-3 rounded-lg transition-all duration-300 shadow-lg hover:scale-110"
+                            title="User menu">
+                        <i class="fas fa-bars text-xl"></i>
+                    </button>
+
+                    <!-- Dropdown (keep as is, it's already white) -->
+                    <div id="menuDropdown" class="hidden absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg overflow-hidden text-gray-700">
+                        <a href="/" class="block px-4 py-3 hover:bg-gray-100 flex items-center gap-2">
+                            <i class="fas fa-home"></i> Dashboard
+                        </a>
+
+                        <button onclick="openSettingsModal()" class="w-full text-left block px-4 py-3 hover:bg-gray-100 flex items-center gap-2 text-gray-700">
+                            <i class="fas fa-cog text-gray-500"></i> Settings
+                        </button>
+
+                        <a href="/logout" class="block px-4 py-3 hover:bg-red-100 text-red-600 flex items-center gap-2">
+                            <i class="fas fa-sign-out-alt"></i> Logout
+                        </a>
+                    </div>
+                </div>
+            </div>
+    </nav>
+
+    <div class="container mx-auto px-4 py-8">
+        <!-- Users Section -->
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-8">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold text-gray-800 flex items-center gap-2">
+                    <i class="fas fa-users"></i>
+                    Users
+                </h2>
+                <button onclick="showAddUserModal()" class="bg-green-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-green-700 transition">
+                    <i class="fas fa-user-plus mr-2"></i>Add User
+                </button>
+            </div>
+            
+            <div class="overflow-x-auto">
+                <table id="usersTable" class="display" style="width:100%">
+                    <thead>
+                        <tr>
+                            <th>Username</th>
+                            <th>Full Name</th>
+                            <th>Email</th>
+                            <th>Role</th>
+                            <th>Status</th>
+                            <th>Created</th>
+                            <th>Last Login</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Login History Section -->
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-8">
+            <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+                <i class="fas fa-history"></i>
+                Login History
+            </h2>
+            
+            <div class="overflow-x-auto">
+                <table id="loginHistoryTable" class="display" style="width:100%">
+                    <thead>
+                        <tr>
+                            <th>Username</th>
+                            <th>Role</th>
+                            <th>Login Time</th>
+                            <th>IP Address</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- User Activity Section -->
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-8">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                <h2 class="text-2xl font-bold text-gray-800 flex items-center gap-2">
+                    <i class="fas fa-chart-line"></i>
+                    User Activity
+                </h2>
+                <!-- Filter Tabs -->
+                <div class="flex gap-2 flex-wrap">
+                    <button onclick="setActivityFilter('all')" id="filterAll"
+                            class="activity-filter-btn active-filter px-4 py-2 rounded-lg text-sm font-semibold transition-all">
+                        <i class="fas fa-th-list mr-1"></i>All
+                    </button>
+                    <button onclick="setActivityFilter('upload')" id="filterUpload"
+                            class="activity-filter-btn inactive-filter px-4 py-2 rounded-lg text-sm font-semibold transition-all">
+                        <i class="fas fa-upload mr-1"></i>Upload History
+                    </button>
+                    <button onclick="setActivityFilter('annotation')" id="filterAnnotation"
+                            class="activity-filter-btn inactive-filter px-4 py-2 rounded-lg text-sm font-semibold transition-all">
+                        <i class="fas fa-map-marker-alt mr-1"></i>Annotations
+                    </button>
+                    <button onclick="setActivityFilter('message')" id="filterMessage"
+                            class="activity-filter-btn inactive-filter px-4 py-2 rounded-lg text-sm font-semibold transition-all">
+                        <i class="fas fa-envelope mr-1"></i>Messages
+                    </button>
+                </div>
+            </div>
+
+            <!-- Activity Feed -->
+            <div id="activityFeed" class="space-y-3 min-h-[200px]">
+                <div class="flex items-center justify-center h-48 text-gray-400">
+                    <i class="fas fa-spinner fa-spin text-2xl mr-2"></i>
+                    <span>Loading activity...</span>
+                </div>
+            </div>
+
+            <!-- Load More -->
+            <div class="mt-4 text-center">
+                <button id="loadMoreBtn" onclick="loadMoreActivity()" class="hidden bg-gray-100 hover:bg-gray-200 text-gray-600 font-semibold px-6 py-2 rounded-lg text-sm transition">
+                    <i class="fas fa-chevron-down mr-1"></i>Load More
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add/Edit User Modal -->
+    <div id="userModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-8 w-full max-w-md">
+            <h3 class="text-2xl font-bold mb-6" id="modalTitle">Add User</h3>
+            <form id="userForm" class="space-y-4">
+                <input type="hidden" id="userId">
+                
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Username</label>
+                    <input type="text" id="modalUsername" required
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Full Name</label>
+                    <input type="text" id="modalFullName" required
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Email</label>
+                    <input type="email" id="modalEmail" required
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                </div>
+                
+                <div id="passwordField">
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Password</label>
+                    <input type="password" id="modalPassword"
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Role</label>
+                    <select id="modalRole" required
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                        <option value="Staff">Staff</option>
+                        <option value="Planner">Planner</option>
+                        <option value="Admin">Admin</option>
+                    </select>
+                </div>
+                
+                <div>
+                    <label class="flex items-center gap-2">
+                        <input type="checkbox" id="modalIsActive" class="w-4 h-4">
+                        <span class="text-sm font-semibold text-gray-700">Active</span>
+                    </label>
+                </div>
+                
+                <div class="flex gap-4">
+                    <button type="submit" class="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-blue-700">
+                        Save
+                    </button>
+                    <button type="button" onclick="closeUserModal()" class="flex-1 bg-gray-300 text-gray-700 px-4 py-2 rounded-lg font-bold hover:bg-gray-400">
+                        Cancel
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+    window.USER_DATA = {
+        userId: {{ user_id | tojson }},
+        username: "{{ username }}",
+        fullName: "{{ full_name }}",
+        role: "{{ role }}"
+    };
+    </script>
+
+    <script>
+        let usersTable, loginHistoryTable;
+
+        async function loadUsers() {
+            const response = await fetch('/api/iam/users');
+            const users = await response.json();
+            
+            usersTable.clear();
+            users.forEach(user => {
+                const roleClass = `role-${user.role.toLowerCase()}`;
+                const statusClass = user.is_active ? 'status-active' : 'status-inactive';
+                const statusIcon = user.is_active ? 'fa-check-circle' : 'fa-times-circle';
+                
+                usersTable.row.add([
+                    user.username,
+                    user.full_name,
+                    user.email,
+                    `<span class="role-badge ${roleClass}">${user.role}</span>`,
+                    `<i class="fas ${statusIcon} ${statusClass}"></i>`,
+                    new Date(user.created_at).toLocaleString(),
+                    user.last_login ? new Date(user.last_login).toLocaleString() : 'Never',
+                    `<button onclick="editUser(${user.id})" class="text-blue-600 hover:text-blue-800 mr-2">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    ${user.username !== 'admin' ? `
+                    <button onclick="deleteUser(${user.id})" class="text-red-600 hover:text-red-800">
+                        <i class="fas fa-trash"></i>
+                    </button>` : ''}`
+                ]);
+            });
+            usersTable.draw();
+        }
+
+        async function loadLoginHistory() {
+            const response = await fetch('/api/iam/login-history');
+            const history = await response.json();
+            
+            loginHistoryTable.clear();
+            history.forEach(entry => {
+                const statusClass = entry.status === 'success' ? 'text-green-600' : 'text-red-600';
+                const statusIcon = entry.status === 'success' ? 'fa-check-circle' : 'fa-times-circle';
+                
+                loginHistoryTable.row.add([
+                    entry.username,
+                    entry.role || 'Unknown',
+                    new Date(entry.login_time).toLocaleString(),
+                    entry.ip_address || 'Unknown',
+                    `<i class="fas ${statusIcon} ${statusClass}"></i> ${entry.status}`
+                ]);
+            });
+            loginHistoryTable.draw();
+        }
+
+        function showAddUserModal() {
+            document.getElementById('modalTitle').textContent = 'Add User';
+            document.getElementById('userForm').reset();
+            document.getElementById('userId').value = '';
+            document.getElementById('modalIsActive').checked = true;
+            document.getElementById('passwordField').style.display = 'block';
+            document.getElementById('modalPassword').required = true;
+            document.getElementById('userModal').classList.remove('hidden');
+        }
+
+        function closeUserModal() {
+            document.getElementById('userModal').classList.add('hidden');
+        }
+
+        async function editUser(userId) {
+            const response = await fetch('/api/iam/users');
+            const users = await response.json();
+            const user = users.find(u => u.id === userId);
+            
+            if (user) {
+                document.getElementById('modalTitle').textContent = 'Edit User';
+                document.getElementById('userId').value = user.id;
+                document.getElementById('modalUsername').value = user.username;
+                document.getElementById('modalUsername').disabled = true;
+                document.getElementById('modalFullName').value = user.full_name;
+                document.getElementById('modalEmail').value = user.email;
+                document.getElementById('modalRole').value = user.role;
+                document.getElementById('modalIsActive').checked = user.is_active;
+                document.getElementById('passwordField').style.display = 'none';
+                document.getElementById('modalPassword').required = false;
+                document.getElementById('userModal').classList.remove('hidden');
+            }
+        }
+
+        async function deleteUser(userId) {
+            if (!confirm('Are you sure you want to delete this user?')) return;
+            
+            const response = await fetch(`/api/iam/users/${userId}`, { method: 'DELETE' });
+            const data = await response.json();
+            
+            if (data.success) {
+                alert('User deleted successfully');
+                loadUsers();
+            } else {
+                alert('Error: ' + data.message);
+            }
+        }
+
+        document.getElementById('userForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const userId = document.getElementById('userId').value;
+            const isEdit = userId !== '';
+            
+            const userData = {
+                email: document.getElementById('modalEmail').value,
+                full_name: document.getElementById('modalFullName').value,
+                role: document.getElementById('modalRole').value,
+                is_active: document.getElementById('modalIsActive').checked
+            };
+            
+            if (!isEdit) {
+                // Adding new user - use register endpoint
+                userData.username = document.getElementById('modalUsername').value;
+                userData.password = document.getElementById('modalPassword').value;
+                
+                const response = await fetch('/register', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(userData)
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert('User created successfully');
+                    closeUserModal();
+                    loadUsers();
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            } else {
+                // Editing existing user
+                const response = await fetch(`/api/iam/users/${userId}`, {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(userData)
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert('User updated successfully');
+                    closeUserModal();
+                    loadUsers();
+                    document.getElementById('modalUsername').disabled = false;
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            }
+        });
+
+        // ===========================
+        // USER ACTIVITY FEED
+        // ===========================
+        let activityFilter = 'all';
+        let activityOffset = 0;
+        const ACTIVITY_PAGE = 20;
+        let allActivityData = [];
+
+        function setActivityFilter(filter) {
+            activityFilter = filter;
+            activityOffset = 0;
+            allActivityData = [];
+
+            // Update tab styles
+            ['all','upload','annotation','message'].forEach(f => {
+                const btn = document.getElementById('filter' + f.charAt(0).toUpperCase() + f.slice(1));
+                if (btn) {
+                    btn.classList.remove('active-filter','inactive-filter');
+                    btn.classList.add(f === filter ? 'active-filter' : 'inactive-filter');
+                }
+            });
+
+            loadActivity(true);
+        }
+
+        async function loadActivity(reset = false) {
+            if (reset) {
+                activityOffset = 0;
+                allActivityData = [];
+                document.getElementById('activityFeed').innerHTML = `
+                    <div class="flex items-center justify-center h-48 text-gray-400">
+                        <i class="fas fa-spinner fa-spin text-2xl mr-2"></i>
+                        <span>Loading activity...</span>
+                    </div>`;
+                document.getElementById('loadMoreBtn').classList.add('hidden');
+            }
+
+            try {
+                const params = new URLSearchParams({ filter: activityFilter, offset: activityOffset, limit: ACTIVITY_PAGE });
+                const res = await fetch(`/api/iam/activity?${params}`);
+                const items = await res.json();
+
+                allActivityData = allActivityData.concat(items);
+                renderActivityFeed(reset);
+
+                activityOffset += items.length;
+                document.getElementById('loadMoreBtn').classList.toggle('hidden', items.length < ACTIVITY_PAGE);
+            } catch(e) {
+                document.getElementById('activityFeed').innerHTML = `
+                    <div class="flex items-center justify-center h-32 text-red-400">
+                        <i class="fas fa-exclamation-circle mr-2"></i>
+                        <span>Failed to load activity.</span>
+                    </div>`;
+            }
+        }
+
+        function loadMoreActivity() {
+            loadActivity(false);
+        }
+
+        function renderActivityFeed(reset) {
+            const feed = document.getElementById('activityFeed');
+            const startIndex = reset ? 0 : allActivityData.length - (allActivityData.length % ACTIVITY_PAGE || ACTIVITY_PAGE);
+            const toRender = reset ? allActivityData : allActivityData.slice(startIndex);
+
+            if (allActivityData.length === 0) {
+                feed.innerHTML = `
+                    <div class="flex flex-col items-center justify-center h-32 text-gray-400 gap-2">
+                        <i class="fas fa-inbox text-3xl opacity-40"></i>
+                        <span class="text-sm">No activity found</span>
+                    </div>`;
+                return;
+            }
+
+            if (reset) feed.innerHTML = '';
+
+            toRender.forEach(item => {
+                const el = document.createElement('div');
+                el.className = 'activity-item';
+
+                let iconClass, iconHtml, title, subtitle, badgeHtml = '';
+
+                if (item.type === 'upload') {
+                    iconClass = 'icon-upload';
+                    iconHtml = '<i class="fas fa-upload"></i>';
+                    const statusColor = item.status === 'success' ? 'bg-green-100 text-green-700' : item.status === 'failed' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700';
+                    title = `Uploaded <strong>${escapeHtml(item.file_name || 'file')}</strong>`;
+                    subtitle = `${item.upload_category || 'data'} • ${item.rows_inserted ?? 0} rows inserted`;
+                    badgeHtml = `<span class="text-xs font-semibold px-2 py-0.5 rounded-full ${statusColor}">${item.status}</span>`;
+                } else if (item.type === 'annotation') {
+                    iconClass = 'icon-annotation';
+                    iconHtml = '<i class="fas fa-map-marker-alt"></i>';
+                    const priorityColor = item.priority === 'critical' ? 'bg-red-100 text-red-700' : item.priority === 'high' ? 'bg-orange-100 text-orange-700' : 'bg-gray-100 text-gray-600';
+                    title = `Created annotation <strong>${escapeHtml(item.title || 'Untitled')}</strong>`;
+                    subtitle = `${item.shape_type || 'shape'} • ${item.status || 'open'}`;
+                    badgeHtml = `<span class="text-xs font-semibold px-2 py-0.5 rounded-full ${priorityColor}">${item.priority || 'normal'}</span>`;
+                } else if (item.type === 'message') {
+                    iconClass = 'icon-message';
+                    iconHtml = '<i class="fas fa-envelope"></i>';
+                    title = `Sent a message to <strong>${escapeHtml(item.partner_name || 'someone')}</strong>`;
+                    subtitle = item.preview ? `"${escapeHtml(item.preview.substring(0, 60))}${item.preview.length > 60 ? '…' : ''}"` : '';
+                    badgeHtml = '';
+                }
+
+                const timeStr = item.timestamp ? new Date(item.timestamp).toLocaleString() : '';
+
+                el.innerHTML = `
+                    <div class="activity-icon ${iconClass}">${iconHtml}</div>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-start justify-between gap-2 flex-wrap">
+                            <div>
+                                <span class="text-sm text-gray-800">${title}</span>
+                                ${badgeHtml ? `<span class="ml-2">${badgeHtml}</span>` : ''}
+                            </div>
+                            <span class="text-xs text-gray-400 flex-shrink-0">${timeStr}</span>
+                        </div>
+                        <div class="flex items-center gap-2 mt-0.5">
+                            <span class="text-xs font-semibold text-blue-600">@${escapeHtml(item.username || '')}</span>
+                            ${subtitle ? `<span class="text-xs text-gray-500">• ${subtitle}</span>` : ''}
+                        </div>
+                    </div>`;
+                feed.appendChild(el);
+            });
+        }
+
+        $(document).ready(function() {
+            usersTable = $('#usersTable').DataTable({
+                order: [[5, 'desc']],
+                pageLength: 10
+            });
+            
+            loginHistoryTable = $('#loginHistoryTable').DataTable({
+                order: [[2, 'desc']],
+                pageLength: 25
+            });
+            
+            loadUsers();
+            loadLoginHistory();
+            loadActivity(true);
+            
+            // Refresh every 30 seconds
+            setInterval(() => {
+                loadUsers();
+                loadLoginHistory();
+                loadActivity(true);
+            }, 30000);
+        });
+    </script>
+
+    <script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const menuBtn = document.getElementById("menuBtn");
+        const dropdown = document.getElementById("menuDropdown");
+
+        menuBtn.addEventListener("click", function(e){
+            e.stopPropagation();
+            dropdown.classList.toggle("hidden");
+        });
+
+        document.addEventListener("click", function(e){
+            if (!menuBtn.contains(e.target) && !dropdown.contains(e.target)) {
+                dropdown.classList.add("hidden");
+            }
+        });
+
+        // Load unread count on page load
+        pollUnreadCount();
+        setInterval(pollUnreadCount, 15000);
+    });
+    </script>
+
+    <!-- ===== SETTINGS MODAL ===== -->
+    <div id="settingsModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
+            <div class="bg-gradient-to-r from-blue-600 to-purple-600 p-6 text-white">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-xl font-bold flex items-center gap-2"><i class="fas fa-cog"></i> Account Settings</h2>
+                    <button onclick="closeSettingsModal()" class="hover:bg-white/20 p-1 rounded-lg transition"><i class="fas fa-times"></i></button>
+                </div>
+            </div>
+            <div class="p-6 space-y-6">
+                <!-- Profile Info -->
+                <div>
+                    <h3 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">Profile Information</h3>
+                    <div class="space-y-3">
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">Full Name</label>
+                            <input type="text" id="settingsFullName" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">Email</label>
+                            <input type="email" id="settingsEmail" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">Username</label>
+                            <input type="text" id="settingsUsername" class="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-sm text-gray-500" readonly>
+                            <p class="text-xs text-gray-400 mt-1">Username cannot be changed</p>
+                        </div>
+                        <button onclick="saveProfileSettings()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition text-sm">
+                            <i class="fas fa-save mr-2"></i>Save Profile
+                        </button>
+                        <div id="profileMsg" class="hidden text-sm text-center font-semibold rounded-lg py-2"></div>
+                    </div>
+                </div>
+
+                <hr class="border-gray-200">
+
+                <!-- Change Password -->
+                <div>
+                    <h3 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">Change Password</h3>
+                    <div class="space-y-3">
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">New Password</label>
+                            <input type="password" id="settingsNewPassword" placeholder="At least 6 characters" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">Confirm Password</label>
+                            <input type="password" id="settingsConfirmPassword" placeholder="Repeat new password" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm">
+                        </div>
+                        <button onclick="savePasswordSettings()" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-4 rounded-lg transition text-sm">
+                            <i class="fas fa-key mr-2"></i>Update Password
+                        </button>
+                        <div id="passwordMsg" class="hidden text-sm text-center font-semibold rounded-lg py-2"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== MESSAGING MODAL ===== -->
+        <div id="messagingModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 overflow-hidden" style="height: 640px; display: flex; flex-direction: column;">
+            <!-- Header -->
+            <div class="bg-gradient-to-r from-blue-600 to-purple-600 p-4 text-white flex items-center justify-between flex-shrink-0">
+                <h2 class="text-xl font-bold flex items-center gap-2"><i class="fas fa-comments"></i> Messages</h2>
+                <button onclick="closeMessagingModal()" class="hover:bg-white/20 p-1 rounded-lg transition"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="flex flex-1 overflow-hidden">
+                <!-- Left sidebar: search + conversation list -->
+                <div class="w-64 border-r border-gray-200 flex flex-col flex-shrink-0">
+                    <!-- Search bar -->
+                    <div class="p-2 border-b border-gray-100">
+                        <div class="relative">
+                            <i class="fas fa-search absolute left-2.5 top-2.5 text-gray-400 text-xs"></i>
+                            <input id="msgSearchInput" type="text" placeholder="Search messages..." oninput="filterConversations()"
+                                   class="w-full pl-7 pr-3 py-2 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-blue-400 outline-none">
+                        </div>
+                    </div>
+                    <!-- New DM / Group buttons -->
+                    <div class="p-2 border-b border-gray-100 flex gap-2">
+                        <button onclick="showNewConversation()" class="flex-1 bg-blue-600 text-white text-xs font-semibold py-1.5 rounded-lg hover:bg-blue-700 transition flex items-center justify-center gap-1">
+                            <i class="fas fa-plus"></i> DM
+                        </button>
+                        <button onclick="showNewGroup()" class="flex-1 bg-purple-600 text-white text-xs font-semibold py-1.5 rounded-lg hover:bg-purple-700 transition flex items-center justify-center gap-1">
+                            <i class="fas fa-users"></i> Group
+                        </button>
+                    </div>
+                    <div id="conversationList" class="flex-1 overflow-y-auto"></div>
+                </div>
+                <!-- Right: chat area -->
+                <div class="flex-1 flex flex-col overflow-hidden">
+                    <!-- Empty state -->
+                    <div id="chatEmpty" class="flex-1 flex items-center justify-center text-gray-400 flex-col gap-3">
+                        <i class="fas fa-comments text-5xl opacity-30"></i>
+                        <p class="text-sm font-medium">Select a conversation or start a new one</p>
+                    </div>
+                    <!-- New DM form -->
+                    <div id="newConvForm" class="hidden flex-1 flex flex-col p-4">
+                        <h3 class="font-bold text-gray-700 mb-3 text-sm">New Message</h3>
+                        <div class="mb-3">
+                            <label class="block text-xs font-semibold text-gray-600 mb-1">To:</label>
+                            <select id="newMsgRecipient" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
+                                <option value="">Select recipient...</option>
+                            </select>
+                        </div>
+                        <div class="flex-1 mb-3">
+                            <label class="block text-xs font-semibold text-gray-600 mb-1">Message:</label>
+                            <textarea id="newMsgContent" class="w-full h-32 px-3 py-2 border border-gray-300 rounded-lg text-sm resize-none focus:ring-2 focus:ring-blue-500" placeholder="Write your message..."></textarea>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="sendNewMessage()" class="flex-1 bg-blue-600 text-white text-sm font-semibold py-2 rounded-lg hover:bg-blue-700 transition"><i class="fas fa-paper-plane mr-1"></i> Send</button>
+                            <button onclick="cancelNewConv()" class="flex-1 bg-gray-100 text-gray-700 text-sm font-semibold py-2 rounded-lg hover:bg-gray-200 transition">Cancel</button>
+                        </div>
+                        <div id="newMsgStatus" class="mt-2 text-xs text-center font-semibold hidden"></div>
+                    </div>
+                    <!-- New group form -->
+                    <div id="newGroupForm" class="hidden flex-1 flex flex-col p-4 overflow-y-auto">
+                        <h3 class="font-bold text-gray-700 mb-3 text-sm flex items-center gap-2"><i class="fas fa-users text-purple-600"></i> New Group Chat</h3>
+                        <div class="mb-3">
+                            <label class="block text-xs font-semibold text-gray-600 mb-1">Group Name:</label>
+                            <input type="text" id="newGroupName" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500" placeholder="e.g. Planning Team">
+                        </div>
+                        <div class="mb-3">
+                            <label class="block text-xs font-semibold text-gray-600 mb-1">Add Members:</label>
+                            <div id="groupMemberCheckboxes" class="max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-2 space-y-1 text-sm text-gray-700"></div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="block text-xs font-semibold text-gray-600 mb-1">First Message:</label>
+                            <textarea id="newGroupMessage" class="w-full h-20 px-3 py-2 border border-gray-300 rounded-lg text-sm resize-none focus:ring-2 focus:ring-purple-500" placeholder="Write your first message..."></textarea>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="sendNewGroup()" class="flex-1 bg-purple-600 text-white text-sm font-semibold py-2 rounded-lg hover:bg-purple-700 transition"><i class="fas fa-users mr-1"></i> Create Group</button>
+                            <button onclick="cancelNewConv()" class="flex-1 bg-gray-100 text-gray-700 text-sm font-semibold py-2 rounded-lg hover:bg-gray-200 transition">Cancel</button>
+                        </div>
+                        <div id="newGroupStatus" class="mt-2 text-xs text-center font-semibold hidden"></div>
+                    </div>
+                    <!-- Active conversation -->
+                    <div id="activeChat" class="hidden flex-1 flex flex-col overflow-hidden">
+                        <!-- Chat header with group actions -->
+                        <div class="p-3 border-b border-gray-100 flex-shrink-0 flex items-center justify-between">
+                            <p class="font-bold text-gray-800 text-sm" id="chatPartnerName"></p>
+                            <div id="groupChatActions" class="hidden flex items-center gap-1">
+                                <button onclick="showGroupMembers()" title="View members"
+                                        class="text-xs text-gray-500 hover:text-purple-600 px-2 py-1 rounded hover:bg-purple-50 transition flex items-center gap-1">
+                                    <i class="fas fa-users"></i><span class="hidden sm:inline">Members</span>
+                                </button>
+                                <button id="renameGroupBtn" onclick="showRenameGroup()" title="Rename group"
+                                        class="hidden text-xs text-blue-500 hover:text-blue-700 px-2 py-1 rounded hover:bg-blue-50 transition flex items-center gap-1">
+                                    <i class="fas fa-pen"></i><span class="hidden sm:inline ml-1">Rename</span>
+                                </button>
+                                <button id="leaveGroupBtn" onclick="leaveGroup()" title="Leave group"
+                                        class="text-xs text-orange-500 hover:text-orange-700 px-2 py-1 rounded hover:bg-orange-50 transition flex items-center gap-1">
+                                    <i class="fas fa-sign-out-alt"></i><span class="hidden sm:inline ml-1">Leave</span>
+                                </button>
+                                <button id="deleteGroupBtn" onclick="deleteGroup()" title="Delete group"
+                                        class="hidden text-xs text-red-500 hover:text-red-700 px-2 py-1 rounded hover:bg-red-50 transition flex items-center gap-1">
+                                    <i class="fas fa-trash-alt"></i><span class="hidden sm:inline ml-1">Delete</span>
+                                </button>
+                            </div>
+                        </div>
+                        <!-- Group members panel (hidden by default) -->
+                        <div id="groupMembersPanel" class="hidden border-b border-gray-100 bg-purple-50 px-3 py-2 flex-shrink-0">
+                            <p class="text-xs font-semibold text-purple-700 mb-1">Members</p>
+                            <div id="groupMembersList" class="flex flex-wrap gap-1.5"></div>
+                        </div>
+                        <!-- Rename group panel (group admins only) -->
+                        <div id="renameGroupPanel" class="hidden border-b border-gray-100 bg-blue-50 px-3 py-2 flex-shrink-0">
+                            <p class="text-xs font-semibold text-blue-700 mb-1.5">Rename Group</p>
+                            <div class="flex gap-2">
+                                <input type="text" id="renameGroupInput" maxlength="80"
+                                       class="flex-1 px-2 py-1.5 text-sm border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-transparent outline-none"
+                                       placeholder="New group name...">
+                                <button onclick="submitRenameGroup()"
+                                        class="text-xs bg-blue-600 hover:bg-blue-700 text-white font-semibold px-3 py-1.5 rounded-lg transition">
+                                    Save
+                                </button>
+                                <button onclick="hideRenameGroup()"
+                                        class="text-xs text-gray-500 hover:text-gray-700 px-2 py-1.5 rounded-lg hover:bg-gray-100 transition">
+                                    Cancel
+                                </button>
+                            </div>
+                            <p id="renameGroupStatus" class="text-xs mt-1 hidden"></p>
+                        </div>
+                        <!-- Message search bar -->
+                        <div id="msgInChatSearchBar" class="hidden border-b border-gray-100 px-3 py-2 flex-shrink-0">
+                            <div class="relative">
+                                <i class="fas fa-search absolute left-2.5 top-2 text-gray-400 text-xs"></i>
+                                <input id="msgInChatInput" type="text" placeholder="Search in conversation..." oninput="filterMessagesInChat()"
+                                       class="w-full pl-7 pr-8 py-1.5 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-blue-400 outline-none">
+                                <button onclick="closeMsgInChatSearch()" class="absolute right-2 top-1.5 text-gray-400 hover:text-gray-600"><i class="fas fa-times text-xs"></i></button>
+                            </div>
+                        </div>
+                        <div id="chatMessages" class="flex-1 overflow-y-auto p-3 space-y-2"></div>
+                        <!-- Input bar: emoji + text + search toggle + send -->
+                        <div class="p-3 border-t border-gray-100 flex-shrink-0">
+                            <!-- Emoji picker (hidden by default) -->
+                            <div id="emojiPicker" class="hidden mb-2 p-2 border border-gray-200 rounded-xl bg-white shadow-md">
+                                <div class="flex flex-wrap gap-1 max-h-28 overflow-y-auto text-lg leading-none">
+                                </div>
+                            </div>
+                            <div class="flex gap-2 items-center">
+                                <button onclick="toggleEmojiPicker()" title="Emoji"
+                                        class="text-gray-400 hover:text-yellow-500 transition text-lg flex-shrink-0">😊</button>
+                                <input type="text" id="chatInput" placeholder="Type a message..."
+                                       class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                                       onkeydown="if(event.key==='Enter')sendChatMessage()">
+                                <button onclick="toggleMsgInChatSearch()" title="Search messages"
+                                        class="text-gray-400 hover:text-blue-500 transition flex-shrink-0">
+                                    <i class="fas fa-search text-sm"></i>
+                                </button>
+                                <button onclick="sendChatMessage()" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 transition flex-shrink-0">
+                                    <i class="fas fa-paper-plane"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+    // ===========================
+    // SETTINGS FUNCTIONS
+    // ===========================
+    async function openSettingsModal() {
+        document.getElementById('menuDropdown').classList.add('hidden');
+        // Fetch current user info
+        try {
+            const res = await fetch('/api/user/profile');
+            const data = await res.json();
+            document.getElementById('settingsFullName').value = data.full_name || '';
+            document.getElementById('settingsEmail').value = data.email || '';
+            document.getElementById('settingsUsername').value = data.username || '';
+        } catch(e) {}
+        document.getElementById('settingsModal').classList.remove('hidden');
+    }
+
+    function closeSettingsModal() {
+        document.getElementById('settingsModal').classList.add('hidden');
+        document.getElementById('profileMsg').classList.add('hidden');
+        document.getElementById('passwordMsg').classList.add('hidden');
+    }
+
+    async function saveProfileSettings() {
+        const msgEl = document.getElementById('profileMsg');
+        msgEl.classList.add('hidden');
+        try {
+            const res = await fetch('/api/user/profile', {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    full_name: document.getElementById('settingsFullName').value,
+                    email: document.getElementById('settingsEmail').value
+                })
+            });
+            const data = await res.json();
+            msgEl.textContent = data.message;
+            msgEl.className = `text-sm text-center font-semibold rounded-lg py-2 ${data.success ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`;
+            msgEl.classList.remove('hidden');
+        } catch(e) {
+            msgEl.textContent = 'Error saving profile';
+            msgEl.className = 'text-sm text-center font-semibold rounded-lg py-2 bg-red-100 text-red-700';
+            msgEl.classList.remove('hidden');
+        }
+    }
+
+    async function savePasswordSettings() {
+        const msgEl = document.getElementById('passwordMsg');
+        const newPw = document.getElementById('settingsNewPassword').value;
+        const confirmPw = document.getElementById('settingsConfirmPassword').value;
+        msgEl.classList.add('hidden');
+
+        if (newPw !== confirmPw) {
+            msgEl.textContent = 'Passwords do not match';
+            msgEl.className = 'text-sm text-center font-semibold rounded-lg py-2 bg-red-100 text-red-700';
+            msgEl.classList.remove('hidden');
+            return;
+        }
+        try {
+            const res = await fetch('/api/user/change-password', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({new_password: newPw})
+            });
+            const data = await res.json();
+            msgEl.textContent = data.message;
+            msgEl.className = `text-sm text-center font-semibold rounded-lg py-2 ${data.success ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`;
+            msgEl.classList.remove('hidden');
+            if (data.success) { document.getElementById('settingsNewPassword').value = ''; document.getElementById('settingsConfirmPassword').value = ''; }
+        } catch(e) {
+            msgEl.textContent = 'Error updating password';
+            msgEl.className = 'text-sm text-center font-semibold rounded-lg py-2 bg-red-100 text-red-700';
+            msgEl.classList.remove('hidden');
+        }
+    }
+
+        // ===========================
+    // MESSAGING FUNCTIONS
+    // ===========================
+    let currentConversationId = null;
+    let currentPartnerName = null;
+    let currentIsGroup = false;
+    let currentIsGroupAdmin = false;
+    let chatPollInterval = null;
+    let allMessages = [];       // cache for in-chat search
+    let allConversations = [];  // cache for sidebar search
+
+    const EMOJIS = ['😀','😂','😍','🥰','😎','🤔','😅','😭','😤','🙏','👍','👎',
+                    '❤️','🔥','✅','⚡','🎉','💯','🚀','👏','😊','🤣','😆','😁',
+                    '😋','🤩','😇','😴','🤗','😏','😒','🙄','😑','🤐','😬','🥲',
+                    '😓','😥','😢','😨','😰','😱','🤯','🤫','🫡','🫠','💀','👻'];
+
+    function getMyRole() {
+        try { return (window.APP_CONFIG && window.APP_CONFIG.role) ? window.APP_CONFIG.role : ''; } catch(e) { return ''; }
+    }
+
+    async function openMessagingModal() {
+        try { document.getElementById('menuDropdown').classList.add('hidden'); } catch(e) {}
+        document.getElementById('messagingModal').classList.remove('hidden');
+        buildEmojiPicker();
+        await loadConversations();
+        await loadUsersForMessaging();
+    }
+
+    function closeMessagingModal() {
+        document.getElementById('messagingModal').classList.add('hidden');
+        if (chatPollInterval) { clearInterval(chatPollInterval); chatPollInterval = null; }
+        document.getElementById('emojiPicker').classList.add('hidden');
+    }
+
+    function buildEmojiPicker() {
+        const picker = document.querySelector('#emojiPicker > div');
+        if (picker.childElementCount > 0) return;
+        EMOJIS.forEach(e => {
+            const btn = document.createElement('button');
+            btn.textContent = e;
+            btn.className = 'hover:bg-gray-100 rounded p-0.5 cursor-pointer';
+            btn.onclick = () => insertEmoji(e);
+            picker.appendChild(btn);
+        });
+    }
+
+    function toggleEmojiPicker() {
+        document.getElementById('emojiPicker').classList.toggle('hidden');
+    }
+
+    function insertEmoji(emoji) {
+        const input = document.getElementById('chatInput');
+        const pos = input.selectionStart;
+        input.value = input.value.slice(0, pos) + emoji + input.value.slice(pos);
+        input.focus();
+        input.selectionStart = input.selectionEnd = pos + emoji.length;
+    }
+
+    // ── Sidebar conversation search ──
+    function filterConversations() {
+        const q = document.getElementById('msgSearchInput').value.toLowerCase().trim();
+        const list = document.getElementById('conversationList');
+        list.innerHTML = '';
+        const filtered = q ? allConversations.filter(c => {
+            const name = (c.title || c.partner_name || '').toLowerCase();
+            const last = (c.last_message || '').toLowerCase();
+            return name.includes(q) || last.includes(q);
+        }) : allConversations;
+        if (filtered.length === 0) {
+            list.innerHTML = '<p class="text-xs text-gray-400 text-center p-4">No results</p>';
+            return;
+        }
+        renderConversationItems(filtered);
+    }
+
+    function renderConversationItems(convs) {
+        const list = document.getElementById('conversationList');
+        list.innerHTML = '';
+        convs.forEach(c => {
+            const displayName = c.title || c.partner_name;
+            const isGroup = !!c.is_group;
+            const div = document.createElement('div');
+            div.className = `p-3 cursor-pointer border-b border-gray-100 hover:bg-gray-50 transition ${c.id === currentConversationId ? 'bg-blue-50' : ''}`;
+            div.onclick = () => openConversation(c.id, displayName, isGroup);
+            div.innerHTML = `
+                <div class="flex items-center justify-between">
+                    <p class="font-semibold text-sm text-gray-800 truncate flex items-center gap-1">
+                        ${isGroup ? '<i class="fas fa-users text-purple-500 text-xs flex-shrink-0"></i>' : ''}
+                        ${escapeHtml(displayName)}
+                    </p>
+                    ${c.unread_count > 0 ? `<span class="bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5 ml-1 flex-shrink-0">${c.unread_count}</span>` : ''}
+                </div>
+                <p class="text-xs text-gray-500 truncate mt-0.5">${c.last_message ? escapeHtml(c.last_message) : ''}</p>
+                <p class="text-xs text-gray-400 mt-0.5">${c.last_time ? new Date(c.last_time).toLocaleString() : ''}</p>`;
+            list.appendChild(div);
+        });
+    }
+
+    async function loadConversations() {
+        try {
+            const res = await fetch('/api/messages/conversations');
+            allConversations = await res.json();
+            renderConversationItems(allConversations);
+            const total = allConversations.reduce((s, c) => s + (c.unread_count || 0), 0);
+            ['navUnreadBadge','iamUnreadBadge'].forEach(id => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                if (total > 0) { el.textContent = total; el.classList.remove('hidden'); }
+                else el.classList.add('hidden');
+            });
+        } catch(e) {}
+    }
+
+	async function loadUsersForMessaging() {
+        try {
+            const res = await fetch('/api/messages/users');
+            const users = await res.json();
+            const sel = document.getElementById('newMsgRecipient');
+            sel.innerHTML = '<option value="">Select recipient...</option>';
+            users.forEach(u => {
+                sel.innerHTML += `<option value="${u.id}">${escapeHtml(u.full_name)} (@${escapeHtml(u.username)})</option>`;
+            });
+        } catch(e) {}
+    }
+	
+    async function openConversation(convId, partnerName, isGroup) {
+        currentConversationId = convId;
+        currentPartnerName = partnerName;
+        currentIsGroup = !!isGroup;
+        document.getElementById('chatEmpty').classList.add('hidden');
+        document.getElementById('newConvForm').classList.add('hidden');
+        document.getElementById('newGroupForm').classList.add('hidden');
+        document.getElementById('groupMembersPanel').classList.add('hidden');
+        document.getElementById('msgInChatSearchBar').classList.add('hidden');
+        document.getElementById('renameGroupPanel').classList.add('hidden');
+        document.getElementById('emojiPicker').classList.add('hidden');
+        document.getElementById('activeChat').classList.remove('hidden');
+        document.getElementById('chatPartnerName').textContent = partnerName;
+
+        // Show/configure group action buttons
+        const groupActions = document.getElementById('groupChatActions');
+        const leaveGroupBtn = document.getElementById('leaveGroupBtn');
+        const deleteGroupBtn = document.getElementById('deleteGroupBtn');
+        const renameGroupBtn = document.getElementById('renameGroupBtn');
+        currentIsGroupAdmin = false;
+        if (currentIsGroup) {
+            groupActions.classList.remove('hidden');
+            try {
+                const mRes = await fetch(`/api/messages/group/${convId}/members`);
+                const members = await mRes.json();
+                const myId = window.USER_DATA && window.USER_DATA.userId;
+                const me = members.find(m => m.id === myId);
+                currentIsGroupAdmin = !!(me && me.is_admin);
+            } catch(e) { currentIsGroupAdmin = false; }
+
+            leaveGroupBtn.classList.remove('hidden');
+            if (currentIsGroupAdmin) {
+                deleteGroupBtn.classList.remove('hidden');
+                renameGroupBtn.classList.remove('hidden');
+            } else {
+                deleteGroupBtn.classList.add('hidden');
+                renameGroupBtn.classList.add('hidden');
+            }
+        } else {
+            groupActions.classList.add('hidden');
+            renameGroupBtn.classList.add('hidden');
+        }
+
+        await loadMessages(convId);
+        await loadConversations();
+        if (chatPollInterval) clearInterval(chatPollInterval);
+        chatPollInterval = setInterval(() => loadMessages(convId), 5000);
+    }
+
+    // ── Group: view members ──
+    async function showGroupMembers() {
+        const panel = document.getElementById('groupMembersPanel');
+        if (!panel.classList.contains('hidden')) { panel.classList.add('hidden'); return; }
+        try {
+            const res = await fetch(`/api/messages/group/${currentConversationId}/members`);
+            const members = await res.json();
+            const container = document.getElementById('groupMembersList');
+            container.innerHTML = '';
+            members.forEach(m => {
+                const chip = document.createElement('span');
+                chip.className = 'text-xs bg-white border border-purple-200 text-purple-700 rounded-full px-2 py-0.5 flex items-center gap-1';
+                chip.innerHTML = `<i class="fas fa-user text-purple-400" style="font-size:0.6rem"></i>${escapeHtml(m.full_name || m.username)}`;
+                container.appendChild(chip);
+            });
+            panel.classList.remove('hidden');
+        } catch(e) {}
+    }
+
+    // ── Group: leave (all members) ──
+    async function leaveGroup() {
+        if (!confirm('Are you sure you want to leave this group?')) return;
+        try {
+            const res = await fetch(`/api/messages/group/${currentConversationId}/leave`, { method: 'POST', headers: {'Content-Type': 'application/json'} });
+            const data = await res.json();
+            if (data.success) {
+                currentConversationId = null; currentIsGroup = false;
+                document.getElementById('activeChat').classList.add('hidden');
+                document.getElementById('chatEmpty').classList.remove('hidden');
+                await loadConversations();
+            } else { alert(data.message || 'Action failed'); }
+        } catch(e) { alert('Error leaving group'); }
+    }
+
+    // ── Group: delete (group admins only) ──
+    async function deleteGroup() {
+        if (!confirm('Are you sure you want to permanently delete this group?')) return;
+        try {
+            const res = await fetch(`/api/messages/group/${currentConversationId}/delete`, { method: 'POST', headers: {'Content-Type': 'application/json'} });
+            const data = await res.json();
+            if (data.success) {
+                currentConversationId = null; currentIsGroup = false;
+                document.getElementById('activeChat').classList.add('hidden');
+                document.getElementById('chatEmpty').classList.remove('hidden');
+                await loadConversations();
+            } else { alert(data.message || 'Action failed'); }
+        } catch(e) { alert('Error deleting group'); }
+    }
+
+    // ── Group: rename (group admins only) ──
+    function showRenameGroup() {
+        const panel = document.getElementById('renameGroupPanel');
+        if (!panel.classList.contains('hidden')) { hideRenameGroup(); return; }
+        document.getElementById('renameGroupInput').value = document.getElementById('chatPartnerName').textContent;
+        document.getElementById('renameGroupStatus').classList.add('hidden');
+        document.getElementById('groupMembersPanel').classList.add('hidden');
+        panel.classList.remove('hidden');
+        document.getElementById('renameGroupInput').focus();
+    }
+
+    function hideRenameGroup() {
+        document.getElementById('renameGroupPanel').classList.add('hidden');
+        document.getElementById('renameGroupStatus').classList.add('hidden');
+    }
+
+    async function submitRenameGroup() {
+        const input = document.getElementById('renameGroupInput');
+        const status = document.getElementById('renameGroupStatus');
+        const newName = input.value.trim();
+        if (!newName) {
+            status.textContent = 'Name cannot be empty.';
+            status.className = 'text-xs mt-1 text-red-500';
+            status.classList.remove('hidden');
+            return;
+        }
+        try {
+            const res = await fetch(`/api/messages/group/${currentConversationId}/rename`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({title: newName})
+            });
+            const data = await res.json();
+            if (data.success) {
+                document.getElementById('chatPartnerName').textContent = newName;
+                currentPartnerName = newName;
+                status.textContent = 'Group renamed!';
+                status.className = 'text-xs mt-1 text-green-600';
+                status.classList.remove('hidden');
+                await loadConversations();
+                setTimeout(hideRenameGroup, 1200);
+            } else {
+                status.textContent = data.message || 'Failed to rename.';
+                status.className = 'text-xs mt-1 text-red-500';
+                status.classList.remove('hidden');
+            }
+        } catch(e) {
+            status.textContent = 'Error renaming group.';
+            status.className = 'text-xs mt-1 text-red-500';
+            status.classList.remove('hidden');
+        }
+    }
+
+    // ── In-chat message search ──
+    function toggleMsgInChatSearch() {
+        const bar = document.getElementById('msgInChatSearchBar');
+        bar.classList.toggle('hidden');
+        if (!bar.classList.contains('hidden')) {
+            document.getElementById('msgInChatInput').focus();
+        } else {
+            document.getElementById('msgInChatInput').value = '';
+            renderMessages(allMessages);
+        }
+    }
+
+    function closeMsgInChatSearch() {
+        document.getElementById('msgInChatSearchBar').classList.add('hidden');
+        document.getElementById('msgInChatInput').value = '';
+        renderMessages(allMessages);
+    }
+
+    function filterMessagesInChat() {
+        const q = document.getElementById('msgInChatInput').value.toLowerCase().trim();
+        if (!q) { renderMessages(allMessages); return; }
+        const filtered = allMessages.filter(m => (m.content || '').toLowerCase().includes(q));
+        renderMessages(filtered, q);
+    }
+
+    function renderMessages(msgs, highlight) {
+        const container = document.getElementById('chatMessages');
+        container.innerHTML = '';
+        msgs.forEach(m => {
+            const isMe = m.is_mine;
+            let content = escapeHtml(m.content);
+            if (highlight) {
+                const re = new RegExp('(' + highlight.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi');
+                content = content.replace(re, '<mark class="bg-yellow-200 rounded px-0.5">$1</mark>');
+            }
+            const div = document.createElement('div');
+            div.className = `flex ${isMe ? 'justify-end' : 'justify-start'}`;
+            div.innerHTML = `
+                <div class="max-w-xs px-3 py-2 rounded-2xl text-sm shadow-sm ${isMe ? 'bg-blue-600 text-white rounded-br-sm' : 'bg-gray-100 text-gray-800 rounded-bl-sm'}">
+                    ${(!isMe && m.sender_name) ? `<p class="text-xs font-semibold mb-1 text-purple-600">${escapeHtml(m.sender_name)}</p>` : ''}
+                    <p>${content}</p>
+                    <p class="text-xs mt-1 opacity-60">${new Date(m.sent_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</p>
+                </div>`;
+            container.appendChild(div);
+        });
+        container.scrollTop = container.scrollHeight;
+    }
+
+    async function loadMessages(convId) {
+        try {
+            const res = await fetch(`/api/messages/conversation/${convId}`);
+            allMessages = await res.json();
+            const q = document.getElementById('msgInChatInput') ? document.getElementById('msgInChatInput').value.toLowerCase().trim() : '';
+            if (q) filterMessagesInChat();
+            else renderMessages(allMessages);
+        } catch(e) {}
+    }
+
+    async function sendChatMessage() {
+        const input = document.getElementById('chatInput');
+        const content = input.value.trim();
+        if (!content || !currentConversationId) return;
+        input.value = '';
+        document.getElementById('emojiPicker').classList.add('hidden');
+        try {
+            await fetch('/api/messages/send', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({conversation_id: currentConversationId, content})
+            });
+            await loadMessages(currentConversationId);
+            await loadConversations();
+        } catch(e) {}
+    }
+
+    function showNewConversation() {
+        document.getElementById('chatEmpty').classList.add('hidden');
+        document.getElementById('activeChat').classList.add('hidden');
+        document.getElementById('newGroupForm').classList.add('hidden');
+        document.getElementById('newConvForm').classList.remove('hidden');
+        document.getElementById('newMsgStatus').classList.add('hidden');
+        if (chatPollInterval) { clearInterval(chatPollInterval); chatPollInterval = null; }
+    }
+
+    function showNewGroup() {
+        document.getElementById('chatEmpty').classList.add('hidden');
+        document.getElementById('activeChat').classList.add('hidden');
+        document.getElementById('newConvForm').classList.add('hidden');
+        document.getElementById('newGroupForm').classList.remove('hidden');
+        document.getElementById('newGroupStatus').classList.add('hidden');
+        if (chatPollInterval) { clearInterval(chatPollInterval); chatPollInterval = null; }
+        loadUsersForGroup();
+    }
+
+    async function loadUsersForGroup() {
+        try {
+            const res = await fetch('/api/messages/users');
+            const users = await res.json();
+            const box = document.getElementById('groupMemberCheckboxes');
+            box.innerHTML = '';
+            users.forEach(u => {
+                box.innerHTML += `<label class="flex items-center gap-2 p-1 hover:bg-gray-50 rounded cursor-pointer">
+                    <input type="checkbox" class="group-member-cb accent-purple-600" value="${u.id}">
+                    <span>${escapeHtml(u.full_name)} <span class="text-gray-400">@${escapeHtml(u.username)}</span></span>
+                </label>`;
+            });
+        } catch(e) {}
+    }
+
+    async function sendNewGroup() {
+        const name = document.getElementById('newGroupName').value.trim();
+        const content = document.getElementById('newGroupMessage').value.trim();
+        const statusEl = document.getElementById('newGroupStatus');
+        const memberIds = [...document.querySelectorAll('.group-member-cb:checked')].map(cb => parseInt(cb.value));
+        if (!name) { statusEl.textContent = 'Please enter a group name.'; statusEl.className = 'mt-2 text-xs text-center font-semibold text-red-600'; statusEl.classList.remove('hidden'); return; }
+        if (memberIds.length === 0) { statusEl.textContent = 'Please select at least one member.'; statusEl.className = 'mt-2 text-xs text-center font-semibold text-red-600'; statusEl.classList.remove('hidden'); return; }
+        if (!content) { statusEl.textContent = 'Please write a first message.'; statusEl.className = 'mt-2 text-xs text-center font-semibold text-red-600'; statusEl.classList.remove('hidden'); return; }
+        try {
+            const res = await fetch('/api/messages/group/new', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({title: name, member_ids: memberIds, content})
+            });
+            const data = await res.json();
+            if (data.success) {
+                document.getElementById('newGroupName').value = '';
+                document.getElementById('newGroupMessage').value = '';
+                statusEl.classList.add('hidden');
+                await loadConversations();
+                openConversation(data.conversation_id, data.title, true);
+            } else {
+                statusEl.textContent = data.message || 'Failed to create group';
+                statusEl.className = 'mt-2 text-xs text-center font-semibold text-red-600';
+                statusEl.classList.remove('hidden');
+            }
+        } catch(e) { statusEl.textContent = 'Error creating group.'; statusEl.className = 'mt-2 text-xs text-center font-semibold text-red-600'; statusEl.classList.remove('hidden'); }
+    }
+
+    function cancelNewConv() {
+        document.getElementById('newConvForm').classList.add('hidden');
+        document.getElementById('newGroupForm').classList.add('hidden');
+        document.getElementById('chatEmpty').classList.remove('hidden');
+    }
+
+    async function sendNewMessage() {
+        const recipientId = document.getElementById('newMsgRecipient').value;
+        const content = document.getElementById('newMsgContent').value.trim();
+        const statusEl = document.getElementById('newMsgStatus');
+        if (!recipientId || !content) {
+            statusEl.textContent = 'Please select a recipient and write a message.';
+            statusEl.className = 'mt-2 text-xs text-center font-semibold text-red-600';
+            statusEl.classList.remove('hidden'); return;
+        }
+        try {
+            const res = await fetch('/api/messages/new', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({recipient_id: parseInt(recipientId), content})
+            });
+            const data = await res.json();
+            if (data.success) {
+                document.getElementById('newMsgContent').value = '';
+                document.getElementById('newMsgRecipient').value = '';
+                statusEl.classList.add('hidden');
+                await loadConversations();
+                openConversation(data.conversation_id, data.partner_name, false);
+            } else {
+                statusEl.textContent = data.message || 'Failed to send';
+                statusEl.className = 'mt-2 text-xs text-center font-semibold text-red-600';
+                statusEl.classList.remove('hidden');
+            }
+        } catch(e) { statusEl.textContent = 'Error sending message.'; statusEl.className = 'mt-2 text-xs text-center font-semibold text-red-600'; statusEl.classList.remove('hidden'); }
+    }
+
+
+    async function pollUnreadCount() {
+        try {
+            const res = await fetch('/api/messages/unread-count');
+            const data = await res.json();
+            const navBadge = document.getElementById('navUnreadBadge');
+            const dropdownBadge = document.getElementById('iamUnreadBadge');
+            
+            if (data.count > 0) {
+                navBadge.textContent = data.count;
+                navBadge.classList.remove('hidden');
+                if (dropdownBadge) {
+                    dropdownBadge.textContent = data.count;
+                    dropdownBadge.classList.remove('hidden');
+                }
+            } else {
+                navBadge.classList.add('hidden');
+                if (dropdownBadge) dropdownBadge.classList.add('hidden');
+            }
+        } catch(e) {}
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.appendChild(document.createTextNode(text));
+        return div.innerHTML;
+    }
+    </script>
+
+<!-- ===== REVIEW MODAL ===== -->
+<div id="reviewModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden">
+        <div class="bg-gradient-to-r from-yellow-500 to-orange-500 text-white px-6 py-4 flex justify-between items-center">
+            <div>
+                <h2 class="text-xl font-bold flex items-center gap-2"><i class="fas fa-star"></i> Submit a Review</h2>
+                <p class="text-xs text-yellow-100 mt-0.5">Share your feedback about the platform</p>
+            </div>
+            <button onclick="closeReviewModal()" class="text-white hover:text-yellow-200 text-xl"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="flex border-b border-gray-200">
+            <button id="reviewTabWrite" onclick="switchReviewTab('write')" class="flex-1 py-3 text-sm font-semibold text-yellow-600 border-b-2 border-yellow-500 bg-yellow-50">
+                <i class="fas fa-pen mr-1"></i> Write Review
+            </button>
+            <button id="reviewTabRead" onclick="switchReviewTab('read')" class="flex-1 py-3 text-sm font-semibold text-gray-500 hover:text-gray-700 hover:bg-gray-50">
+                <i class="fas fa-list mr-1"></i> All Reviews
+            </button>
+        </div>
+        <div id="reviewPanelWrite" class="p-6 space-y-4">
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-bold text-gray-600 mb-1">Category</label>
+                    <select id="reviewCategory" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400">
+                        <option>General</option><option>Dashboard</option><option>Coverage Map</option>
+                        <option>Data Quality</option><option>Performance</option><option>Feature Request</option><option>Bug Report</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-600 mb-1">Rating</label>
+                    <div id="reviewStars" class="flex gap-1 mt-1">
+                        <i class="review-star fas fa-star text-2xl cursor-pointer text-gray-300" data-val="1"></i>
+                        <i class="review-star fas fa-star text-2xl cursor-pointer text-gray-300" data-val="2"></i>
+                        <i class="review-star fas fa-star text-2xl cursor-pointer text-gray-300" data-val="3"></i>
+                        <i class="review-star fas fa-star text-2xl cursor-pointer text-gray-300" data-val="4"></i>
+                        <i class="review-star fas fa-star text-2xl cursor-pointer text-gray-300" data-val="5"></i>
+                    </div>
+                    <input type="hidden" id="reviewRating" value="0">
+                </div>
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-gray-600 mb-1">Title <span class="text-gray-400 font-normal">(optional)</span></label>
+                <input id="reviewTitle" type="text" placeholder="Brief summary..." maxlength="120"
+                       class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400">
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-gray-600 mb-1">Your Feedback <span class="text-red-500">*</span></label>
+                <textarea id="reviewBody" rows="4" placeholder="Tell us about your experience..."
+                          class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400 resize-none"></textarea>
+            </div>
+            <div class="flex items-center justify-between">
+                <label class="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+                    <input type="checkbox" id="reviewAnon" class="w-4 h-4 rounded">
+                    Post anonymously
+                </label>
+                <button onclick="submitReview()" id="reviewSubmitBtn"
+                        class="bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white px-6 py-2 rounded-lg text-sm font-bold transition-all">
+                    <i class="fas fa-paper-plane mr-1"></i> Submit
+                </button>
+            </div>
+            <div id="reviewMsg" class="hidden text-sm text-center font-semibold rounded-lg py-2"></div>
+        </div>
+        <div id="reviewPanelRead" class="hidden p-4 max-h-96 overflow-y-auto">
+            <div class="flex gap-2 mb-3">
+                <select id="reviewFilterCat" onchange="loadReviews()" class="border border-gray-200 rounded-lg px-3 py-1.5 text-xs flex-1">
+                    <option value="">All Categories</option>
+                    <option>General</option><option>Dashboard</option><option>Coverage Map</option>
+                    <option>Data Quality</option><option>Performance</option><option>Feature Request</option><option>Bug Report</option>
+                </select>
+                <button onclick="loadReviews()" class="bg-yellow-50 text-yellow-700 border border-yellow-200 rounded-lg px-3 py-1.5 text-xs font-bold hover:bg-yellow-100"><i class="fas fa-sync-alt"></i></button>
+            </div>
+            <div id="reviewsList" class="space-y-3">
+                <div class="text-center text-gray-400 text-sm py-8"><i class="fas fa-circle-notch fa-spin mr-2"></i>Loading...</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let _reviewRating = 0;
+function openReviewModal() {
+    document.getElementById('reviewModal').classList.remove('hidden');
+    switchReviewTab('write');
+}
+function closeReviewModal() {
+    document.getElementById('reviewModal').classList.add('hidden');
+    resetReviewForm();
+}
+function switchReviewTab(tab) {
+    const write = document.getElementById('reviewPanelWrite');
+    const read  = document.getElementById('reviewPanelRead');
+    const tabW  = document.getElementById('reviewTabWrite');
+    const tabR  = document.getElementById('reviewTabRead');
+    if (tab === 'write') {
+        write.classList.remove('hidden'); read.classList.add('hidden');
+        tabW.className = 'flex-1 py-3 text-sm font-semibold text-yellow-600 border-b-2 border-yellow-500 bg-yellow-50';
+        tabR.className = 'flex-1 py-3 text-sm font-semibold text-gray-500 hover:text-gray-700 hover:bg-gray-50';
+    } else {
+        write.classList.add('hidden'); read.classList.remove('hidden');
+        tabR.className = 'flex-1 py-3 text-sm font-semibold text-yellow-600 border-b-2 border-yellow-500 bg-yellow-50';
+        tabW.className = 'flex-1 py-3 text-sm font-semibold text-gray-500 hover:text-gray-700 hover:bg-gray-50';
+        loadReviews();
+    }
+}
+function resetReviewForm() {
+    _reviewRating = 0;
+    document.getElementById('reviewRating').value = 0;
+    document.getElementById('reviewTitle').value = '';
+    document.getElementById('reviewBody').value = '';
+    document.getElementById('reviewAnon').checked = false;
+    document.getElementById('reviewCategory').value = 'General';
+    document.querySelectorAll('.review-star').forEach(s => s.style.color = '#d1d5db');
+    const msg = document.getElementById('reviewMsg');
+    msg.classList.add('hidden'); msg.textContent = '';
+}
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.review-star').forEach(star => {
+        star.addEventListener('click', function() {
+            _reviewRating = parseInt(this.dataset.val);
+            document.getElementById('reviewRating').value = _reviewRating;
+            document.querySelectorAll('.review-star').forEach(s => {
+                s.style.color = parseInt(s.dataset.val) <= _reviewRating ? '#f59e0b' : '#d1d5db';
+            });
+        });
+        star.addEventListener('mouseover', function() {
+            const val = parseInt(this.dataset.val);
+            document.querySelectorAll('.review-star').forEach(s => {
+                s.style.color = parseInt(s.dataset.val) <= val ? '#f59e0b' : '#d1d5db';
+            });
+        });
+        star.addEventListener('mouseout', function() {
+            document.querySelectorAll('.review-star').forEach(s => {
+                s.style.color = parseInt(s.dataset.val) <= _reviewRating ? '#f59e0b' : '#d1d5db';
+            });
+        });
+    });
+    document.getElementById('reviewModal').addEventListener('click', function(e) {
+        if (e.target === this) closeReviewModal();
+    });
+});
+async function submitReview() {
+    const rating = parseInt(document.getElementById('reviewRating').value);
+    const body   = document.getElementById('reviewBody').value.trim();
+    if (!rating) { showReviewMsg('Please select a star rating.', 'error'); return; }
+    if (!body)   { showReviewMsg('Please enter your feedback.', 'error'); return; }
+    const btn = document.getElementById('reviewSubmitBtn');
+    btn.disabled = true; btn.innerHTML = '<i class="fas fa-circle-notch fa-spin mr-1"></i> Submitting...';
+    try {
+        const res = await fetch('/api/reviews', {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({
+                category: document.getElementById('reviewCategory').value,
+                rating, title: document.getElementById('reviewTitle').value.trim(),
+                body, is_anonymous: document.getElementById('reviewAnon').checked
+            })
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+            showReviewMsg('Thank you for your review! 🎉', 'success');
+            setTimeout(() => { resetReviewForm(); switchReviewTab('read'); }, 1200);
+        } else {
+            showReviewMsg(data.error || 'Failed to submit.', 'error');
+        }
+    } catch(e) { showReviewMsg('Network error.', 'error'); }
+    finally { btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane mr-1"></i> Submit'; }
+}
+function showReviewMsg(text, type) {
+    const msg = document.getElementById('reviewMsg');
+    msg.textContent = text;
+    msg.className = `text-sm text-center font-semibold rounded-lg py-2 ${type==='success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`;
+    msg.classList.remove('hidden');
+}
+async function loadReviews() {
+    const list = document.getElementById('reviewsList');
+    const cat  = document.getElementById('reviewFilterCat').value;
+    list.innerHTML = '<div class="text-center text-gray-400 text-sm py-8"><i class="fas fa-circle-notch fa-spin mr-2"></i>Loading...</div>';
+    try {
+        const res  = await fetch(`/api/reviews?limit=50${cat ? '&category='+encodeURIComponent(cat) : ''}`);
+        const rows = await res.json();
+        if (!rows.length) { list.innerHTML = '<div class="text-center text-gray-400 text-sm py-8"><i class="fas fa-inbox mr-2"></i>No reviews yet.</div>'; return; }
+        list.innerHTML = rows.map(r => `
+            <div class="bg-gray-50 border border-gray-200 rounded-xl p-3">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <span class="text-xs font-bold text-gray-700">${escapeHtml(r.username)}</span>
+                        <span class="ml-2 text-[10px] bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full font-semibold">${escapeHtml(r.category)}</span>
+                    </div>
+                    <span class="text-yellow-400 text-sm">${'★'.repeat(r.rating)}${'☆'.repeat(5-r.rating)}</span>
+                </div>
+                ${r.title ? `<p class="text-sm font-semibold text-gray-800 mt-1">${escapeHtml(r.title)}</p>` : ''}
+                <p class="text-xs text-gray-600 mt-1 leading-relaxed">${escapeHtml(r.body)}</p>
+                <p class="text-[10px] text-gray-400 mt-1">${new Date(r.created_at).toLocaleDateString('en-MY',{year:'numeric',month:'short',day:'numeric'})}</p>
+            </div>
+        `).join('');
+    } catch(e) { list.innerHTML = '<div class="text-center text-red-400 text-sm py-8">Failed to load reviews.</div>'; }
+}
+</script>
+</body>
+</html>
