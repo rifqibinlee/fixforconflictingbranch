@@ -33,6 +33,10 @@
 
   <script src="https://unpkg.com/@superset-ui/embedded-sdk"></script>
 
+  <!-- CesiumJS for 3D Map -->
+  <link rel="stylesheet" href="https://cesium.com/downloads/cesiumjs/releases/1.122/Build/Cesium/Widgets/widgets.css">
+  <script src="https://cesium.com/downloads/cesiumjs/releases/1.122/Build/Cesium/Cesium.js"></script>
+
     <style>
         .table-container { overflow-x: auto; }
         .dt-buttons { display: none !important; }
@@ -310,6 +314,9 @@
             </button>
             <button id="tabBtnMap" onclick="switchMainTab('map')" class="text-white opacity-70 hover:opacity-100 font-bold border-b-2 border-transparent hover:border-whitepb-1 transition-all">
                 <i class="fas fa-map-marked-alt mr-1"></i> Coverage Map
+            </button>
+            <button id="tabBtn3D" onclick="switchMainTab('3d')" class="text-white opacity-70 hover:opacity-100 font-bold border-b-2 border-transparent hover:border-white pb-1 transition-all">
+                <i class="fas fa-cube mr-1"></i> 3D Map
             </button>
         </div>
 
@@ -777,6 +784,11 @@
     </div>
 
     </div><!-- /#mapContainer -->
+
+    <!-- 3D Map Container (CesiumJS) -->
+    <div id="map3dContainer" style="display:none; position:absolute; top:72px; bottom:0; left:0; right:0; overflow:hidden;">
+        <div id="cesiumContainer" style="width:100%; height:100%;"></div>
+    </div>
 
 <div id="plotModalOverlay" class="plot-modal-overlay">
         <div class="plot-modal">
@@ -1280,37 +1292,55 @@
         function switchMainTab(tab) {
             const dashboardView = document.getElementById('dashboardView');
             const mapContainer = document.getElementById('mapContainer');
+            const map3dContainer = document.getElementById('map3dContainer');
             const dashboardChat = document.getElementById('chatWidget');
             const mapChatBtn = document.getElementById('mapChatToggleBtn');
             const mapChatPnl = document.getElementById('mapChatPanel');
 
+            const inactiveClass = 'text-white opacity-70 hover:opacity-100 font-bold border-b-2 border-transparent hover:border-white pb-1 transition-all';
+            const activeClass = 'text-white font-bold border-b-2 border-white pb-1 transition-all';
+
+            // Hide all views
+            if (dashboardView) dashboardView.style.display = 'none';
+            if (mapContainer) mapContainer.style.display = 'none';
+            if (map3dContainer) map3dContainer.style.display = 'none';
+
+            // Reset all tab buttons
+            document.getElementById('tabBtnDashboard').className = inactiveClass;
+            document.getElementById('tabBtnMap').className = inactiveClass;
+            document.getElementById('tabBtn3D').className = inactiveClass;
+
             if (tab === 'dashboard') {
-                if (mapContainer) mapContainer.style.display = 'none';
                 if (dashboardView) dashboardView.style.display = 'block';
-                // Show dashboard chat, hide map chat
                 if (dashboardChat) dashboardChat.style.display = '';
                 if (mapChatBtn) mapChatBtn.style.display = 'none';
                 if (mapChatPnl) { mapChatPnl.classList.add('hidden'); mapChatPnl.classList.remove('flex'); }
-
-                document.getElementById('tabBtnDashboard').className = 'text-white font-bold border-b-2 border-white pb-1 transition-all';
-                document.getElementById('tabBtnMap').className = 'text-white opacity-70 hover:opacity-100 font-bold border-b-2 border-transparent hover:border-white pb-1 transition-all';
+                document.getElementById('tabBtnDashboard').className = activeClass;
 
                 setTimeout(() => {
                     if (window.dispatchEvent) window.dispatchEvent(new Event('resize'));
                 }, 100);
-            } else {
-                if (dashboardView) dashboardView.style.display = 'none';
+
+            } else if (tab === 'map') {
                 if (mapContainer) mapContainer.style.display = 'block';
-                // Hide dashboard chat, show map chat
                 if (dashboardChat) dashboardChat.style.display = 'none';
                 if (mapChatBtn) mapChatBtn.style.display = '';
+                document.getElementById('tabBtnMap').className = activeClass;
 
-                document.getElementById('tabBtnDashboard').className = 'text-white opacity-70 hover:opacity-100 font-bold border-b-2 border-transparent hover:border-white pb-1 transition-all';
-                document.getElementById('tabBtnMap').className = 'text-white font-bold border-b-2 border-white pb-1 transition-all';
-
-                // Initialize map on first visit, or just resize
                 setTimeout(() => {
                     if (typeof initMapIfNeeded === 'function') initMapIfNeeded();
+                }, 200);
+
+            } else if (tab === '3d') {
+                if (map3dContainer) map3dContainer.style.display = 'block';
+                if (dashboardChat) dashboardChat.style.display = 'none';
+                if (mapChatBtn) mapChatBtn.style.display = 'none';
+                if (mapChatPnl) { mapChatPnl.classList.add('hidden'); mapChatPnl.classList.remove('flex'); }
+                document.getElementById('tabBtn3D').className = activeClass;
+
+                // Initialize Cesium viewer on first visit
+                setTimeout(() => {
+                    if (typeof initCesiumIfNeeded === 'function') initCesiumIfNeeded();
                 }, 200);
             }
         }
@@ -3959,6 +3989,92 @@
         function closeMetabaseDashboard() {
             document.getElementById('metabaseModal').classList.add('hidden');
             document.getElementById('metabaseEmbedContainer').innerHTML = '';
+        }
+
+        // ==========================================
+        // CESIUM 3D MAP INITIALIZATION
+        // ==========================================
+        let cesiumViewer = null;
+        let cesiumInitialized = false;
+
+        async function initCesiumIfNeeded() {
+            if (cesiumInitialized) {
+                // Just trigger a resize so the canvas fills the container
+                if (cesiumViewer) cesiumViewer.resize();
+                return;
+            }
+            cesiumInitialized = true;
+
+            Cesium.Ion.defaultAccessToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJjMjg4MzRjNi01ZTRlLTQ4NzgtOGVlNi0yMjFhMjMyODQ2NjAiLCJpZCI6NDAzNTkyLCJpYXQiOjE3NzQ3NjQwNTN9.Yw-hl_nLMDwpYDeB_-w1xT6bj1vBpbCEIKCePeo6ehU";
+
+            try {
+                cesiumViewer = new Cesium.Viewer('cesiumContainer', {
+                    terrainProvider: await Cesium.createWorldTerrainAsync(),
+                    timeline: false,
+                    animation: false
+                });
+
+                cesiumViewer.scene.globe.enableLighting = true;
+
+                const buildings = await Cesium.createOsmBuildingsAsync();
+                cesiumViewer.scene.primitives.add(buildings);
+
+                cesiumViewer.camera.flyTo({
+                    destination: Cesium.Cartesian3.fromDegrees(101.6869, 3.1390, 1500)
+                });
+
+                // Add site markers from siteDataCache if available
+                if (typeof siteDataCache !== 'undefined' && siteDataCache && siteDataCache.length > 0) {
+                    add3dSiteMarkers();
+                }
+            } catch (e) {
+                console.error('Cesium init error:', e);
+                document.getElementById('cesiumContainer').innerHTML =
+                    '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#dc2626;font-weight:bold;font-size:1.1rem;"><i class="fas fa-exclamation-triangle" style="margin-right:8px;"></i> Failed to load 3D Map: ' + e.message + '</div>';
+            }
+        }
+
+        function add3dSiteMarkers() {
+            if (!cesiumViewer || !siteDataCache) return;
+
+            siteDataCache.forEach(site => {
+                if (!site.lat || !site.lng) return;
+
+                let isCongested = false;
+                if (site.sectors) {
+                    const areaStr = String(site.area_target || '').toLowerCase();
+                    const isUrban = areaStr.includes('urban') || areaStr.includes('kmc');
+                    const prbThreshold = isUrban ? 80.0 : 92.0;
+                    for (let sec of site.sectors) {
+                        const p = parseFloat(sec.prb ?? 0);
+                        if (p >= prbThreshold) { isCongested = true; break; }
+                    }
+                }
+
+                cesiumViewer.entities.add({
+                    position: Cesium.Cartesian3.fromDegrees(parseFloat(site.lng), parseFloat(site.lat), 50),
+                    point: {
+                        pixelSize: 8,
+                        color: isCongested ? Cesium.Color.fromCssColorString('#dc2626') : Cesium.Color.fromCssColorString('#2563eb'),
+                        outlineColor: Cesium.Color.WHITE,
+                        outlineWidth: 1,
+                        heightReference: Cesium.HeightReference.RELATIVE_TO_GROUND
+                    },
+                    label: {
+                        text: site.site_id || '',
+                        font: '11px sans-serif',
+                        fillColor: Cesium.Color.WHITE,
+                        outlineColor: Cesium.Color.BLACK,
+                        outlineWidth: 2,
+                        style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+                        verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+                        pixelOffset: new Cesium.Cartesian2(0, -12),
+                        distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 15000),
+                        heightReference: Cesium.HeightReference.RELATIVE_TO_GROUND
+                    },
+                    description: '<b>' + (site.site_id || '') + '</b><br>' + (site.site_name || '')
+                });
+            });
         }
 
 
