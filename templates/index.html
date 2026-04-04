@@ -4480,9 +4480,18 @@
                 setCctvStatus('Running QGIS cctv2 pipeline (may take a minute)…', 'fas fa-cogs fa-beat-fade');
 
                 const resp = await fetch('/api/cctv/run', { method: 'POST', body: formData });
-                const data = await resp.json();
 
-                if (!resp.ok || data.error) throw new Error(data.error || 'Server error ' + resp.status);
+                let data;
+                try {
+                    data = await resp.json();
+                } catch (parseErr) {
+                    throw new Error('Server returned ' + resp.status + ' (' + resp.statusText + '). The QGIS processing server may not be available.');
+                }
+
+                if (!resp.ok || data.error) {
+                    const detail = data.detail ? '\n\nDetail: ' + data.detail.slice(-500) : '';
+                    throw new Error((data.error || 'Server error ' + resp.status) + detail);
+                }
 
                 setCctvStatus('Rendering QGIS output layers…', 'fas fa-paint-brush fa-beat-fade');
                 await new Promise(r => setTimeout(r, 100));
