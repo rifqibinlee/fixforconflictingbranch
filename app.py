@@ -1777,15 +1777,25 @@ def api_cctv_run():
     ]
 
     try:
-        # ── 1. Save uploaded GeoJSON files to temp directory ──
+        # ── 1. Save uploaded files to temp directory ──
         tmpdir = tempfile.mkdtemp(prefix='cctv_')
         input_paths = {}
 
-        for key in REQUIRED_INPUTS:
+        # GeoJSON inputs
+        for key in ['building', 'parking_area', 'pole_points']:
             if key not in request.files:
                 return jsonify({'error': f'Missing required input: {key}'}), 400
             f = request.files[key]
             path = os.path.join(tmpdir, f'{key}.geojson')
+            f.save(path)
+            input_paths[key] = path
+
+        # CSV inputs (camera_table, offset_table)
+        for key in ['camera_table', 'offset_table']:
+            if key not in request.files:
+                return jsonify({'error': f'Missing required input: {key}'}), 400
+            f = request.files[key]
+            path = os.path.join(tmpdir, f'{key}.csv')
             f.save(path)
             input_paths[key] = path
 
@@ -1836,8 +1846,22 @@ def load_layer(path, name, geom_type="ogr"):
 building    = load_layer("{input_paths['building']}", "building")
 parking     = load_layer("{input_paths['parking_area']}", "parking_area")
 poles       = load_layer("{input_paths['pole_points']}", "pole_points")
-camera_tbl  = load_layer("{input_paths['camera_table']}", "camera_table")
-offset_tbl  = load_layer("{input_paths['offset_table']}", "offset_table")
+
+# Load CSV tables as QGIS vector layers (no geometry)
+camera_uri  = "file:///{input_paths['camera_table']}?delimiter=,&type=csv".replace("\\\\", "/")
+offset_uri  = "file:///{input_paths['offset_table']}?delimiter=,&type=csv".replace("\\\\", "/")
+camera_tbl  = QgsVectorLayer(camera_uri, "camera_table", "delimitedtext")
+offset_tbl  = QgsVectorLayer(offset_uri, "offset_table", "delimitedtext")
+
+if not camera_tbl.isValid():
+    print("ERROR: Failed to load camera_table CSV", file=sys.stderr)
+    sys.exit(1)
+if not offset_tbl.isValid():
+    print("ERROR: Failed to load offset_table CSV", file=sys.stderr)
+    sys.exit(1)
+
+QgsProject.instance().addMapLayer(camera_tbl, False)
+QgsProject.instance().addMapLayer(offset_tbl, False)
 
 # Set CRS if not set (assume WGS84)
 crs = QgsCoordinateReferenceSystem("EPSG:4326")
