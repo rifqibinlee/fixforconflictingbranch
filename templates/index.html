@@ -1002,17 +1002,72 @@
         <div id="cctvMap" style="position:absolute; top:0; left:360px; right:0; bottom:0;"></div>
     </div>
 
-    <!-- Illegal Bitcoin Mining Tool (Placeholder) -->
-    <div id="bitcoinContainer" style="display:none; position:absolute; top:72px; bottom:0; left:0; right:0; overflow:hidden; background:#f8fafc;">
-        <div style="display:flex; align-items:center; justify-content:center; height:100%; flex-direction:column; gap:20px;">
-            <div style="width:100px; height:100px; border-radius:24px; background:linear-gradient(135deg, #f59e0b, #d97706); display:flex; align-items:center; justify-content:center; box-shadow:0 8px 30px rgba(217,119,6,0.3);">
-                <i class="fab fa-bitcoin" style="font-size:3rem; color:white;"></i>
+    <!-- Illegal Bitcoin Mining Analyser -->
+    <div id="bitcoinContainer" style="display:none; position:absolute; top:72px; bottom:0; left:0; right:0; overflow:hidden; background:#0a0e14; color:#c8d8e8; font-family:'Space Mono',monospace;">
+        <!-- Miner Hunter Header -->
+        <div style="background:#111720; border-bottom:1px solid #1e2d3d; padding:10px 20px; display:flex; align-items:center; gap:16px; flex-shrink:0;">
+            <div>
+                <div style="font-family:'Syne',sans-serif; font-weight:800; font-size:17px; color:#00d4ff; letter-spacing:0.05em;">⬡ ILLEGAL BITCOIN MINING ANALYSER</div>
+                <div style="font-size:10px; color:#4a6070; text-transform:uppercase; letter-spacing:0.1em;">Cell Site Triangulation</div>
             </div>
-            <h2 style="font-size:1.5rem; font-weight:800; color:#1e293b;">Illegal Bitcoin Mining Detection</h2>
-            <p style="color:#64748b; font-size:0.95rem; max-width:450px; text-align:center; line-height:1.6;">This tool identifies anomalous energy consumption patterns that may indicate unauthorized cryptocurrency mining operations at cell sites.</p>
-            <div style="background:#fef3c7; border:1px solid #fde68a; border-radius:10px; padding:14px 24px; display:flex; align-items:center; gap:10px;">
-                <i class="fas fa-hard-hat" style="color:#d97706; font-size:1.1rem;"></i>
-                <span style="color:#92400e; font-weight:600; font-size:0.85rem;">Under Development — Coming Soon</span>
+            <div style="display:flex; gap:0; border:1px solid #1e2d3d; border-radius:4px; overflow:hidden; margin-left:16px;">
+                <button id="mh_btn2pt" onclick="mhSetMode(2)" style="padding:6px 16px; font-family:'Space Mono',monospace; font-size:11px; font-weight:700; cursor:pointer; background:#00d4ff; color:#000; border:none; text-transform:uppercase; letter-spacing:0.08em;">2-Point</button>
+                <button id="mh_btn3pt" onclick="mhSetMode(3)" style="padding:6px 16px; font-family:'Space Mono',monospace; font-size:11px; font-weight:700; cursor:pointer; background:transparent; color:#4a6070; border:none; text-transform:uppercase; letter-spacing:0.08em;">3-Point</button>
+            </div>
+            <div style="display:flex; gap:6px; margin-left:auto; align-items:center;" id="mhSteps">
+                <div class="mh-step active" id="mhStep1" style="width:26px;height:26px;border-radius:50%;border:2px solid #00d4ff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#00d4ff;box-shadow:0 0 10px #00d4ff;">1</div>
+                <div style="width:12px;height:1px;background:#1e2d3d;"></div>
+                <div id="mhStep2" style="width:26px;height:26px;border-radius:50%;border:2px solid #1e2d3d;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#4a6070;">2</div>
+                <div id="mhSep23" style="width:12px;height:1px;background:#1e2d3d;"></div>
+                <div id="mhStep3" style="width:26px;height:26px;border-radius:50%;border:2px solid #1e2d3d;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#4a6070;">3</div>
+            </div>
+        </div>
+        <!-- Main area -->
+        <div style="display:flex; flex:1; overflow:hidden; height:calc(100% - 52px);">
+            <!-- Map -->
+            <div id="mhMap" style="flex:1;"></div>
+            <div id="mhMapHint" style="position:absolute; bottom:28px; left:calc(50% - 145px); background:rgba(10,14,20,0.92); border:1px solid #1e2d3d; border-radius:4px; padding:7px 13px; font-size:11px; color:#c8d8e8; z-index:1000; pointer-events:none; white-space:nowrap;">Click a cell site to select Site 1</div>
+            <!-- Sidebar -->
+            <div style="width:290px; background:#111720; border-left:1px solid #1e2d3d; display:flex; flex-direction:column; flex-shrink:0; overflow-y:auto;">
+                <div style="padding:14px 16px; border-bottom:1px solid #1e2d3d;">
+                    <div style="font-size:10px; text-transform:uppercase; letter-spacing:0.15em; color:#4a6070; margin-bottom:10px;">Search Sites</div>
+                    <input type="text" id="mhSearchBox" placeholder="Search site ID or name..." style="width:100%;background:rgba(255,255,255,0.04);border:1px solid #1e2d3d;border-radius:4px;color:#c8d8e8;font-family:'Space Mono',monospace;font-size:11px;padding:7px 10px;outline:none;box-sizing:border-box;" oninput="mhOnSearch(this.value)">
+                    <div id="mhSearchResults" style="max-height:140px;overflow-y:auto;margin-top:4px;border:1px solid #1e2d3d;border-radius:4px;display:none;"></div>
+                </div>
+                <div style="padding:14px 16px; border-bottom:1px solid #1e2d3d;">
+                    <div style="font-size:10px; text-transform:uppercase; letter-spacing:0.15em; color:#4a6070; margin-bottom:10px;">Selected Sites</div>
+                    <div id="mhSlot1" style="display:flex;align-items:center;gap:9px;padding:7px 9px;border-radius:4px;border:1px solid #1e2d3d;background:rgba(255,255,255,0.02);min-height:42px;margin-bottom:7px;">
+                        <div style="width:9px;height:9px;border-radius:50%;border:2px solid #00d4ff;flex-shrink:0;"></div>
+                        <div style="flex:1;"><div style="font-size:11px;color:#4a6070;font-style:italic;">Select site 1</div></div>
+                    </div>
+                    <div id="mhSlot2" style="display:flex;align-items:center;gap:9px;padding:7px 9px;border-radius:4px;border:1px solid #1e2d3d;background:rgba(255,255,255,0.02);min-height:42px;margin-bottom:7px;">
+                        <div style="width:9px;height:9px;border-radius:50%;border:2px solid #ff6b35;flex-shrink:0;"></div>
+                        <div style="flex:1;"><div style="font-size:11px;color:#4a6070;font-style:italic;">Select site 2</div></div>
+                    </div>
+                    <div id="mhSlot3Wrapper">
+                        <div id="mhSlot3" style="display:flex;align-items:center;gap:9px;padding:7px 9px;border-radius:4px;border:1px solid #1e2d3d;background:rgba(255,255,255,0.02);min-height:42px;">
+                            <div style="width:9px;height:9px;border-radius:50%;border:2px solid #b44fff;flex-shrink:0;"></div>
+                            <div style="flex:1;"><div style="font-size:11px;color:#4a6070;font-style:italic;">Select site 3</div></div>
+                        </div>
+                    </div>
+                </div>
+                <div style="padding:14px 16px; border-bottom:1px solid #1e2d3d;">
+                    <div style="font-size:10px; text-transform:uppercase; letter-spacing:0.15em; color:#4a6070; margin-bottom:10px;">Actions</div>
+                    <button id="mhRunBtn" disabled onclick="mhRun()" style="width:100%;padding:9px;border-radius:4px;border:none;font-family:'Space Mono',monospace;font-size:11px;font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:0.08em;background:#1e2d3d;color:#4a6070;">▶ Run Analysis</button>
+                    <button onclick="mhResetAll()" style="width:100%;padding:9px;border-radius:4px;border:1px solid #ff6b35;background:transparent;color:#ff6b35;font-family:'Space Mono',monospace;font-size:11px;font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:0.08em;margin-top:7px;">↺ Reset</button>
+                </div>
+                <div style="padding:14px 16px; border-bottom:1px solid #1e2d3d;">
+                    <div style="font-size:10px; text-transform:uppercase; letter-spacing:0.15em; color:#4a6070; margin-bottom:10px;">Results</div>
+                    <div id="mhResults"><div style="font-size:11px;color:#4a6070;font-style:italic;">Run analysis to see results</div></div>
+                </div>
+                <div style="padding:14px 16px;">
+                    <div style="font-size:10px; text-transform:uppercase; letter-spacing:0.15em; color:#4a6070; margin-bottom:10px;">Legend</div>
+                    <div style="font-size:10px;color:#4a6070;line-height:1.8;">
+                        ● <span style="color:#00d4ff">Site 1</span> &nbsp; ● <span style="color:#ff6b35">Site 2</span> &nbsp; ● <span style="color:#b44fff">Site 3</span><br>
+                        ✦ <span style="color:#39ff14">Centroid / Midpoint</span><br>
+                        ◯ <span style="color:rgba(57,255,20,0.5)">Suspected Buffer</span>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -1581,6 +1636,7 @@
                 if (bitcoinContainer) bitcoinContainer.style.display = 'block';
                 toolsBtn.classList.remove('opacity-70', 'border-transparent');
                 toolsBtn.classList.add('opacity-100', 'border-white');
+                setTimeout(() => { if (typeof initMinerHunter === 'function') initMinerHunter(); }, 200);
             }
         }
 
@@ -4210,6 +4266,247 @@
             makePanelResizable('tasksPanel',      'tasksResizeHandle');
             makePanelResizable('notesPanel',      'notesResizeHandle');
         })();
+
+        // ==========================================
+        // ILLEGAL BITCOIN MINING ANALYSER
+        // ==========================================
+        let mhMap = null;
+        let mhInitialized = false;
+        let mhSitesData = [];
+        let mhMode = 2;
+        let mhSelected = [null, null, null];
+        let mhAnalysisLayers = [];
+        let mhSiteMarkerMap = {};
+        const mhColors = ['#00d4ff','#ff6b35','#b44fff'];
+
+        function mhDefaultIcon() {
+            return L.divIcon({ className:'', html:'<div style="width:5px;height:5px;border-radius:50%;background:#1e3a4a;border:1px solid #2a5570;"></div>', iconSize:[5,5], iconAnchor:[2.5,2.5] });
+        }
+        function mhSelectedIcon(color) {
+            return L.divIcon({ className:'', html:'<div style="width:12px;height:12px;border-radius:50%;background:'+color+';border:2px solid #fff;box-shadow:0 0 8px '+color+';"></div>', iconSize:[12,12], iconAnchor:[6,6] });
+        }
+
+        async function initMinerHunter() {
+            if (mhInitialized) { mhMap.invalidateSize(); return; }
+            mhInitialized = true;
+
+            mhMap = L.map('mhMap', { zoomControl: true, preferCanvas: true }).setView([3.8, 108.5], 6);
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; CARTO', maxZoom: 19
+            }).addTo(mhMap);
+
+            // Load sites from API (reuse cache if available)
+            let data;
+            if (siteDataCache && siteDataCache.length > 0) {
+                data = siteDataCache;
+            } else {
+                try {
+                    const resp = await fetch('/api/sites');
+                    data = await resp.json();
+                    if (!Array.isArray(data)) data = [];
+                } catch(e) { data = []; }
+            }
+
+            mhSitesData = data.filter(s => s && s.site_id && !isNaN(parseFloat(s.lat)) && !isNaN(parseFloat(s.lng))).map(s => ({
+                site_id: s.site_id,
+                site_name: s.site_name || s.site_id,
+                lat: parseFloat(s.lat),
+                lon: parseFloat(s.lng),
+                state: s.region || '',
+                district: s.cluster || ''
+            }));
+
+            // Plot all sites
+            mhSitesData.forEach(site => {
+                const m = L.marker([site.lat, site.lon], { icon: mhDefaultIcon() }).addTo(mhMap)
+                    .on('click', () => mhSelectSite(site));
+                mhSiteMarkerMap[site.site_id] = m;
+            });
+
+            // Draw coverage from siteDataCache
+            if (siteDataCache && siteDataCache.length > 0) {
+                siteDataCache.forEach(site => {
+                    if (!site.coverage) return;
+                    const lat = parseFloat(site.lat), lng = parseFloat(site.lng);
+                    if (isNaN(lat) || isNaN(lng)) return;
+                    const azGroups = {};
+                    site.coverage.forEach(sec => { const a = parseFloat(sec.az); if (!azGroups[a]) azGroups[a] = {}; azGroups[a][sec.tech] = sec; });
+                    Object.entries(azGroups).forEach(([azStr, techs]) => {
+                        const az = parseFloat(azStr);
+                        const maxRad = Math.max(...Object.values(techs).map(t => t.rad || 1000));
+                        const cfg = [{tech:'4G',i:0,o:0.5,c:'#1a3a5c'},{tech:'3G',i:0.5,o:0.75,c:'#1a2a3c'},{tech:'2G',i:0.75,o:1.0,c:'#0f1f2c'}];
+                        cfg.forEach(x => {
+                            if (techs[x.tech]) {
+                                const bw = techs[x.tech].bw || 65;
+                                const R = 6378137, startA = (az-bw/2)*Math.PI/180, endA = (az+bw/2)*Math.PI/180;
+                                const latR = lat*Math.PI/180, lngR = lng*Math.PI/180, pts = [];
+                                for (let i=0;i<=24;i++){const a=startA+(endA-startA)*(i/24);pts.push([(latR+(maxRad*x.o/R)*Math.cos(a))*180/Math.PI,(lngR+(maxRad*x.o/R)*Math.sin(a)/Math.cos(latR))*180/Math.PI]);}
+                                for (let i=24;i>=0;i--){const a=startA+(endA-startA)*(i/24);pts.push([(latR+(maxRad*x.i/R)*Math.cos(a))*180/Math.PI,(lngR+(maxRad*x.i/R)*Math.sin(a)/Math.cos(latR))*180/Math.PI]);}
+                                L.polygon(pts, {color:x.c,weight:0.5,fillOpacity:0.15}).addTo(mhMap);
+                            }
+                        });
+                    });
+                });
+            }
+
+            mhSetMode(2);
+        }
+
+        function mhSetMode(m) {
+            mhMode = m;
+            document.getElementById('mh_btn2pt').style.background = m===2 ? '#00d4ff' : 'transparent';
+            document.getElementById('mh_btn2pt').style.color = m===2 ? '#000' : '#4a6070';
+            document.getElementById('mh_btn3pt').style.background = m===3 ? '#00d4ff' : 'transparent';
+            document.getElementById('mh_btn3pt').style.color = m===3 ? '#000' : '#4a6070';
+            document.getElementById('mhSlot3Wrapper').style.display = m===2 ? 'none' : '';
+            document.getElementById('mhStep3').style.display = m===2 ? 'none' : '';
+            document.getElementById('mhSep23').style.display = m===2 ? 'none' : '';
+            mhResetAll();
+        }
+
+        function mhSelectSite(site) {
+            const maxSlots = mhMode === 2 ? 2 : 3;
+            const slot = mhSelected.slice(0, maxSlots).findIndex(s => s === null);
+            if (slot === -1) return;
+            if (mhSelected.some(s => s && s.site_id === site.site_id)) return;
+            mhSelected[slot] = site;
+            mhUpdateUI();
+            mhMap.panTo([site.lat, site.lon]);
+        }
+
+        function mhRemoveSite(slot) {
+            mhSelected[slot] = null;
+            const filled = mhSelected.filter(s => s !== null);
+            mhSelected = [filled[0]||null, filled[1]||null, filled[2]||null];
+            mhUpdateUI();
+            mhClearAnalysis();
+        }
+
+        function mhUpdateUI() {
+            // Update slots
+            [0,1,2].forEach(i => {
+                const el = document.getElementById('mhSlot'+(i+1));
+                const site = mhSelected[i];
+                const dotColor = mhColors[i];
+                if (site) {
+                    el.style.borderColor = dotColor;
+                    el.innerHTML = '<div style="width:9px;height:9px;border-radius:50%;background:'+dotColor+';box-shadow:0 0 7px '+dotColor+';flex-shrink:0;"></div>' +
+                        '<div style="flex:1;min-width:0;"><div style="font-size:11px;font-weight:700;color:#c8d8e8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+site.site_id+'</div><div style="font-size:10px;color:#4a6070;">'+site.lat.toFixed(5)+', '+site.lon.toFixed(5)+'</div></div>' +
+                        '<span onclick="event.stopPropagation();mhRemoveSite('+i+')" style="cursor:pointer;color:#4a6070;font-size:13px;padding:2px 4px;">✕</span>';
+                } else {
+                    el.style.borderColor = '#1e2d3d';
+                    el.innerHTML = '<div style="width:9px;height:9px;border-radius:50%;border:2px solid '+dotColor+';flex-shrink:0;"></div><div style="flex:1;"><div style="font-size:11px;color:#4a6070;font-style:italic;">Select site '+(i+1)+'</div></div>';
+                }
+            });
+            // Update markers
+            mhSitesData.forEach(s => { if(mhSiteMarkerMap[s.site_id]) mhSiteMarkerMap[s.site_id].setIcon(mhDefaultIcon()); });
+            mhSelected.forEach((s,i) => { if(s && mhSiteMarkerMap[s.site_id]) mhSiteMarkerMap[s.site_id].setIcon(mhSelectedIcon(mhColors[i])); });
+            // Update steps
+            const count = mhSelected.filter(s=>s).length;
+            [1,2,3].forEach(i => {
+                const el = document.getElementById('mhStep'+i);
+                el.style.borderColor = mhSelected[i-1] ? mhColors[i-1] : (count===i-1 ? '#00d4ff' : '#1e2d3d');
+                el.style.background = mhSelected[i-1] ? mhColors[i-1] : 'transparent';
+                el.style.color = mhSelected[i-1] ? (i===3?'#fff':'#000') : (count===i-1 ? '#00d4ff' : '#4a6070');
+                el.style.boxShadow = count===i-1 && !mhSelected[i-1] ? '0 0 10px #00d4ff' : 'none';
+            });
+            // Run button
+            const needed = mhMode===2 ? 2 : 3;
+            const ready = mhSelected.slice(0,needed).every(s=>s!==null);
+            const btn = document.getElementById('mhRunBtn');
+            btn.disabled = !ready;
+            btn.style.background = ready ? '#00d4ff' : '#1e2d3d';
+            btn.style.color = ready ? '#000' : '#4a6070';
+            // Hint
+            document.getElementById('mhMapHint').textContent = count < needed ? 'Click a cell site to select Site '+(count+1) : needed+' sites selected — click Run Analysis';
+        }
+
+        function mhClearAnalysis() {
+            mhAnalysisLayers.forEach(l => mhMap.removeLayer(l));
+            mhAnalysisLayers = [];
+            document.getElementById('mhResults').innerHTML = '<div style="font-size:11px;color:#4a6070;font-style:italic;">Run analysis to see results</div>';
+        }
+
+        function mhResetAll() {
+            mhSelected = [null,null,null];
+            mhClearAnalysis();
+            mhUpdateUI();
+        }
+
+        function mhHaversine(lat1,lon1,lat2,lon2) {
+            const R=6371, dLat=(lat2-lat1)*Math.PI/180, dLon=(lon2-lon1)*Math.PI/180;
+            const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+            return R*2*Math.asin(Math.sqrt(a));
+        }
+
+        function mhCircle(lat,lon,rKm,n=64) {
+            const R=6371,pts=[];
+            for(let i=0;i<=n;i++){const a=2*Math.PI*i/n;pts.push([lat+(rKm/R)*180/Math.PI*Math.cos(a),lon+(rKm/R)*180/Math.PI*Math.sin(a)/Math.cos(lat*Math.PI/180)]);}
+            return pts;
+        }
+
+        function mhRun() {
+            mhClearAnalysis();
+            if (mhMode === 2) {
+                const s1=mhSelected[0], s2=mhSelected[1];
+                const mLat=(s1.lat+s2.lat)/2, mLon=(s1.lon+s2.lon)/2;
+                const d1=mhHaversine(s1.lat,s1.lon,mLat,mLon);
+                const d2=mhHaversine(s2.lat,s2.lon,mLat,mLon);
+                const maxDist=Math.max(d1,d2);
+                const totalDist=mhHaversine(s1.lat,s1.lon,s2.lat,s2.lon);
+
+                const line=L.polyline([[s1.lat,s1.lon],[s2.lat,s2.lon]],{color:'#ffdd00',weight:2,dashArray:'6,4'}).addTo(mhMap); mhAnalysisLayers.push(line);
+                const mm=L.marker([mLat,mLon],{icon:L.divIcon({className:'',html:'<div style="width:13px;height:13px;background:#39ff14;border:2px solid #fff;border-radius:2px;transform:rotate(45deg);box-shadow:0 0 10px #39ff14;"></div>',iconSize:[13,13],iconAnchor:[6.5,6.5]})}).addTo(mhMap); mhAnalysisLayers.push(mm);
+                const buf=L.polygon(mhCircle(mLat,mLon,maxDist),{color:'#39ff14',weight:1.5,fillColor:'#39ff14',fillOpacity:.05,dashArray:'4,4'}).addTo(mhMap); mhAnalysisLayers.push(buf);
+                mhMap.fitBounds(L.latLngBounds(mhCircle(mLat,mLon,maxDist)),{padding:[40,40]});
+
+                document.getElementById('mhResults').innerHTML =
+                    '<div style="display:inline-block;font-size:9px;padding:2px 6px;border-radius:2px;background:rgba(0,212,255,0.12);color:#00d4ff;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:8px;">2-Point Mode</div>' +
+                    '<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:11px;"><span style="color:#4a6070;">S1 ↔ S2</span><span style="color:#39ff14;font-weight:700;">'+totalDist.toFixed(3)+' km</span></div>' +
+                    '<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:11px;"><span style="color:#4a6070;">Buffer radius</span><span style="color:#39ff14;font-weight:700;">'+maxDist.toFixed(3)+' km</span></div>' +
+                    '<div style="display:flex;justify-content:space-between;padding:5px 0;font-size:11px;"><span style="color:#4a6070;">Midpoint</span><span style="color:#39ff14;font-weight:700;font-size:10px;">'+mLat.toFixed(4)+', '+mLon.toFixed(4)+'</span></div>';
+            } else {
+                const s1=mhSelected[0], s2=mhSelected[1], s3=mhSelected[2];
+                const pts=[[s1.lat,s1.lon],[s2.lat,s2.lon],[s3.lat,s3.lon]];
+                const cLat=pts.reduce((s,p)=>s+p[0],0)/3, cLon=pts.reduce((s,p)=>s+p[1],0)/3;
+                const dists=pts.map(p=>mhHaversine(p[0],p[1],cLat,cLon));
+                const maxDist=Math.max(...dists);
+
+                const tri=L.polygon(pts,{color:'#ffdd00',weight:2,fillColor:'#ffdd00',fillOpacity:.04,dashArray:'6,4'}).addTo(mhMap); mhAnalysisLayers.push(tri);
+                const cm=L.marker([cLat,cLon],{icon:L.divIcon({className:'',html:'<div style="width:13px;height:13px;background:#39ff14;border:2px solid #fff;border-radius:2px;transform:rotate(45deg);box-shadow:0 0 10px #39ff14;"></div>',iconSize:[13,13],iconAnchor:[6.5,6.5]})}).addTo(mhMap); mhAnalysisLayers.push(cm);
+                const buf=L.polygon(mhCircle(cLat,cLon,maxDist),{color:'#39ff14',weight:1.5,fillColor:'#39ff14',fillOpacity:.05,dashArray:'4,4'}).addTo(mhMap); mhAnalysisLayers.push(buf);
+                mhColors.forEach((col,i)=>{const l=L.polyline([pts[i],[cLat,cLon]],{color:col,weight:1,opacity:.35,dashArray:'3,5'}).addTo(mhMap);mhAnalysisLayers.push(l);});
+                mhMap.fitBounds(L.latLngBounds(mhCircle(cLat,cLon,maxDist)),{padding:[40,40]});
+
+                const d12=mhHaversine(s1.lat,s1.lon,s2.lat,s2.lon);
+                const d23=mhHaversine(s2.lat,s2.lon,s3.lat,s3.lon);
+                const d13=mhHaversine(s1.lat,s1.lon,s3.lat,s3.lon);
+
+                document.getElementById('mhResults').innerHTML =
+                    '<div style="display:inline-block;font-size:9px;padding:2px 6px;border-radius:2px;background:rgba(0,212,255,0.12);color:#00d4ff;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:8px;">3-Point Mode</div>' +
+                    '<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:11px;"><span style="color:#4a6070;">Buffer radius</span><span style="color:#39ff14;font-weight:700;">'+maxDist.toFixed(3)+' km</span></div>' +
+                    '<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:11px;"><span style="color:#4a6070;">Centroid</span><span style="color:#39ff14;font-weight:700;font-size:10px;">'+cLat.toFixed(4)+', '+cLon.toFixed(4)+'</span></div>' +
+                    '<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:11px;"><span style="color:#4a6070;">S1 ↔ S2</span><span style="color:#39ff14;font-weight:700;">'+d12.toFixed(3)+' km</span></div>' +
+                    '<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:11px;"><span style="color:#4a6070;">S2 ↔ S3</span><span style="color:#39ff14;font-weight:700;">'+d23.toFixed(3)+' km</span></div>' +
+                    '<div style="display:flex;justify-content:space-between;padding:5px 0;font-size:11px;"><span style="color:#4a6070;">S1 ↔ S3</span><span style="color:#39ff14;font-weight:700;">'+d13.toFixed(3)+' km</span></div>';
+            }
+        }
+
+        // Search
+        function mhOnSearch(q) {
+            const rd = document.getElementById('mhSearchResults');
+            if (q.length < 2) { rd.style.display='none'; return; }
+            const matches = mhSitesData.filter(s => s.site_id.toLowerCase().includes(q.toLowerCase()) || s.site_name.toLowerCase().includes(q.toLowerCase())).slice(0,8);
+            if (!matches.length) { rd.style.display='none'; return; }
+            rd.innerHTML = matches.map(s => '<div onclick="mhSearchSelect(\''+s.site_id+'\')" style="padding:7px 10px;font-size:11px;cursor:pointer;border-bottom:1px solid #1e2d3d;"><div style="font-weight:700;color:#00d4ff;">'+s.site_id+'</div><div style="color:#4a6070;font-size:10px;">'+s.state+' · '+s.district+'</div></div>').join('');
+            rd.style.display = 'block';
+        }
+        function mhSearchSelect(id) {
+            const site = mhSitesData.find(s => s.site_id === id);
+            if (site) { mhMap.setView([site.lat, site.lon], 14); mhSelectSite(site); }
+            document.getElementById('mhSearchResults').style.display = 'none';
+            document.getElementById('mhSearchBox').value = '';
+        }
 
         // ==========================================
         // CCTV PLANNING MAP + PIPELINE
