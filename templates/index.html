@@ -869,7 +869,7 @@
                         <span style="background:#2563eb; color:white; width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:0.7rem; font-weight:800;">1</span>
                         <span style="font-size:0.78rem; font-weight:700; color:#1e3a8a;">Upload Input Layers</span>
                     </div>
-                    <p style="font-size:0.68rem; color:#64748b; margin:0 0 10px 0;">Upload GeoJSON files for Building, Parking, and Poles. Upload CSV files for Camera Table and Offset Table. Uploaded layers will appear on the map.</p>
+                    <p style="font-size:0.68rem; color:#64748b; margin:0 0 10px 0;">Upload GeoJSON files for each input. Uploaded layers will appear on the map.</p>
 
                     <!-- Building (Polygon) -->
                     <div style="margin-bottom:8px;">
@@ -916,12 +916,12 @@
                     <!-- Camera Table (table/attribute) -->
                     <div style="margin-bottom:8px;">
                         <label style="font-size:0.68rem; font-weight:700; color:#4b5563; display:flex; align-items:center; gap:4px; margin-bottom:3px;">
-                            <i class="fas fa-video" style="color:#dc2626; width:14px;"></i> Camera Table <span style="color:#94a3b8; font-weight:400;">(columns: camera_type, hfov_deg, range_m, unit_price_rm)</span>
+                            <i class="fas fa-video" style="color:#dc2626; width:14px;"></i> Camera Table <span style="color:#94a3b8; font-weight:400;">(properties: camera_type, hfov_deg, range_m, unit_price_rm)</span>
                         </label>
                         <div style="display:flex; gap:4px;">
                             <label style="flex:1; display:flex; align-items:center; gap:6px; padding:6px 10px; border:1px dashed #fecaca; border-radius:5px; background:#fef2f2; cursor:pointer; font-size:0.72rem; color:#991b1b; font-weight:600; transition:background 0.15s;" onmouseover="this.style.background='#fee2e2'" onmouseout="this.style.background='#fef2f2'">
                                 <i class="fas fa-upload"></i> <span id="cctvCameraLabel">Choose file…</span>
-                                <input type="file" id="cctvCameraFile" accept=".csv" onchange="cctvFileLoaded(this,'camera')" style="display:none;" />
+                                <input type="file" id="cctvCameraFile" accept=".geojson,.json" onchange="cctvFileLoaded(this,'camera')" style="display:none;" />
                             </label>
                             <button id="cctvCameraClear" onclick="cctvClearFile('camera')" style="display:none; background:#fee2e2; border:none; border-radius:5px; padding:0 8px; cursor:pointer; color:#dc2626; font-size:0.7rem;" title="Remove"><i class="fas fa-times"></i></button>
                         </div>
@@ -930,12 +930,12 @@
                     <!-- Offset Table (table/attribute) -->
                     <div>
                         <label style="font-size:0.68rem; font-weight:700; color:#4b5563; display:flex; align-items:center; gap:4px; margin-bottom:3px;">
-                            <i class="fas fa-compass" style="color:#7c3aed; width:14px;"></i> Offset Table <span style="color:#94a3b8; font-weight:400;">(column: offset)</span>
+                            <i class="fas fa-compass" style="color:#7c3aed; width:14px;"></i> Offset Table <span style="color:#94a3b8; font-weight:400;">(property: offset)</span>
                         </label>
                         <div style="display:flex; gap:4px;">
                             <label style="flex:1; display:flex; align-items:center; gap:6px; padding:6px 10px; border:1px dashed #ddd6fe; border-radius:5px; background:#f5f3ff; cursor:pointer; font-size:0.72rem; color:#5b21b6; font-weight:600; transition:background 0.15s;" onmouseover="this.style.background='#ede9fe'" onmouseout="this.style.background='#f5f3ff'">
                                 <i class="fas fa-upload"></i> <span id="cctvOffsetLabel">Choose file…</span>
-                                <input type="file" id="cctvOffsetFile" accept=".csv" onchange="cctvFileLoaded(this,'offset')" style="display:none;" />
+                                <input type="file" id="cctvOffsetFile" accept=".geojson,.json" onchange="cctvFileLoaded(this,'offset')" style="display:none;" />
                             </label>
                             <button id="cctvOffsetClear" onclick="cctvClearFile('offset')" style="display:none; background:#fee2e2; border:none; border-radius:5px; padding:0 8px; cursor:pointer; color:#dc2626; font-size:0.7rem;" title="Remove"><i class="fas fa-times"></i></button>
                         </div>
@@ -4233,79 +4233,43 @@
             offset:   { geojson: null, layer: null, color: '#7c3aed' }
         };
 
-        // Parse a CSV string into an array of row objects keyed by header names
-        function parseCSV(text) {
-            const lines = text.trim().split(/\r?\n/);
-            if (lines.length < 2) throw new Error('CSV must have a header row and at least one data row');
-            const headers = lines[0].split(',').map(h => h.trim());
-            return lines.slice(1).filter(l => l.trim()).map(line => {
-                const vals = line.split(',');
-                const row = {};
-                headers.forEach((h, i) => { row[h] = (vals[i] || '').trim(); });
-                return row;
-            });
-        }
-
         function cctvFileLoaded(input, type) {
             const file = input.files[0];
             if (!file) return;
             const reader = new FileReader();
             reader.onload = function(e) {
                 try {
-                    const labelEl = document.getElementById('cctv' + type.charAt(0).toUpperCase() + type.slice(1) + 'Label');
+                    const gj = JSON.parse(e.target.result);
+                    if (!gj.type || !gj.features) throw new Error('Invalid GeoJSON');
+                    cctvInputs[type].geojson = gj;
 
-                    // Camera and Offset tables use CSV; all other types use GeoJSON
+                    // Update label
+                    const label = document.getElementById('cctv' + type.charAt(0).toUpperCase() + type.slice(1) + 'Label');
+                    label.textContent = file.name + ' (' + gj.features.length + ')';
+                    document.getElementById('cctv' + type.charAt(0).toUpperCase() + type.slice(1) + 'Clear').style.display = '';
+
+                    // Draw on map
+                    if (cctvInputs[type].layer) { cctvMap.removeLayer(cctvInputs[type].layer); }
+                    const style = type === 'poles'
+                        ? { pointToLayer: (f, ll) => L.circleMarker(ll, { radius: 4, color: cctvInputs[type].color, fillColor: cctvInputs[type].color, fillOpacity: 0.7, weight: 1 }) }
+                        : { style: { color: cctvInputs[type].color, weight: 2, fillOpacity: 0.15 } };
+
+                    // camera and offset are attribute tables — don't render geometrically, just show summary
                     if (type === 'camera' || type === 'offset') {
-                        const rows = parseCSV(e.target.result);
-                        if (rows.length === 0) throw new Error('CSV has no data rows');
-
-                        // Validate required columns
-                        if (type === 'camera') {
-                            const required = ['camera_type', 'hfov_deg', 'range_m', 'unit_price_rm'];
-                            const missing = required.filter(c => !(c in rows[0]));
-                            if (missing.length) throw new Error('Missing columns: ' + missing.join(', '));
-                        } else {
-                            if (!('offset' in rows[0])) throw new Error('Missing column: offset');
-                        }
-
-                        // Store rows as a pseudo-GeoJSON structure so downstream pipeline code is unchanged
-                        cctvInputs[type].geojson = {
-                            type: 'FeatureCollection',
-                            features: rows.map(r => ({ type: 'Feature', geometry: null, properties: r }))
-                        };
-
-                        // Show summary in label
+                        const props = gj.features.map(f => f.properties);
                         const info = type === 'camera'
-                            ? rows.map(p => (p.camera_type || '?') + ': ' + p.hfov_deg + '° / ' + p.range_m + 'm / RM' + p.unit_price_rm).join(', ')
-                            : rows.map(p => p.offset + '°').join(', ');
-                        labelEl.textContent = file.name + ' — ' + info;
-                        document.getElementById('cctv' + type.charAt(0).toUpperCase() + type.slice(1) + 'Clear').style.display = '';
-
-                        cctvUpdateUploadSummary();
-                        setCctvStatus(type.charAt(0).toUpperCase() + type.slice(1) + ' loaded — ' + rows.length + ' rows', 'fas fa-check-circle', 3000);
-
+                            ? props.map(p => p.camera_type + ': ' + p.hfov_deg + '° / ' + p.range_m + 'm / RM' + p.unit_price_rm).join(', ')
+                            : props.map(p => p.offset + '°').join(', ');
+                        label.textContent = file.name + ' — ' + info;
                     } else {
-                        // GeoJSON path for building, parking, poles
-                        const gj = JSON.parse(e.target.result);
-                        if (!gj.type || !gj.features) throw new Error('Invalid GeoJSON');
-                        cctvInputs[type].geojson = gj;
-
-                        labelEl.textContent = file.name + ' (' + gj.features.length + ')';
-                        document.getElementById('cctv' + type.charAt(0).toUpperCase() + type.slice(1) + 'Clear').style.display = '';
-
-                        if (cctvInputs[type].layer) { cctvMap.removeLayer(cctvInputs[type].layer); }
-                        const style = type === 'poles'
-                            ? { pointToLayer: (f, ll) => L.circleMarker(ll, { radius: 4, color: cctvInputs[type].color, fillColor: cctvInputs[type].color, fillOpacity: 0.7, weight: 1 }) }
-                            : { style: { color: cctvInputs[type].color, weight: 2, fillOpacity: 0.15 } };
-
                         cctvInputs[type].layer = L.geoJSON(gj, style).addTo(cctvMap);
                         cctvMap.fitBounds(cctvInputs[type].layer.getBounds(), { padding: [40, 40] });
-
-                        cctvUpdateUploadSummary();
-                        setCctvStatus(type.charAt(0).toUpperCase() + type.slice(1) + ' loaded — ' + gj.features.length + ' features', 'fas fa-check-circle', 3000);
                     }
+
+                    cctvUpdateUploadSummary();
+                    setCctvStatus(type.charAt(0).toUpperCase() + type.slice(1) + ' loaded — ' + gj.features.length + ' features', 'fas fa-check-circle', 3000);
                 } catch (err) {
-                    alert('Error reading ' + type + ' file: ' + err.message);
+                    alert('Error reading ' + type + ' GeoJSON: ' + err.message);
                 }
             };
             reader.readAsText(file);
@@ -4444,19 +4408,18 @@
             return pts;
         }
 
-        // AOI is now derived from uploaded building + parking GeoJSON — drawing removed
+        // AOI is now derived from uploaded building + parking GeoJSON
         function cctvStartDrawAOI() { /* no longer used */ }
 
-        // ── CCTV Pipeline (client-side implementation of cctv2.py using uploaded GeoJSON) ──
+        // ── CCTV Pipeline — sends files to backend /api/cctv/run which runs cctv2.py via PyQGIS ──
         async function cctvRunPipeline() {
-            // Validate required inputs
             const missing = [];
             if (!cctvInputs.building.geojson) missing.push('Building');
             if (!cctvInputs.parking.geojson) missing.push('Parking Area');
             if (!cctvInputs.poles.geojson) missing.push('Pole Points');
             if (!cctvInputs.camera.geojson) missing.push('Camera Table');
             if (!cctvInputs.offset.geojson) missing.push('Offset Table');
-            if (missing.length > 0) { alert('Missing inputs: ' + missing.join(', ') + '\nPlease upload all 5 GeoJSON files in Step 1.'); return; }
+            if (missing.length > 0) { alert('Missing inputs: ' + missing.join(', ')); return; }
             if (!cctvMap) return;
 
             const runBtn = document.getElementById('cctvRunBtn');
@@ -4465,201 +4428,99 @@
             cctvResultLayers.clearLayers();
 
             try {
-                const bufferDist = parseFloat(document.getElementById('cctvBufferDist').value) || 30;
-                const hexSpacing = parseFloat(document.getElementById('cctvHexSpacing').value) || 60;
+                setCctvStatus('Uploading files to QGIS server…', 'fas fa-upload fa-beat-fade');
 
-                // Extract offset values from offset table GeoJSON
-                const offsets = cctvInputs.offset.geojson.features.map(f => parseFloat(f.properties.offset)).filter(n => !isNaN(n));
-                if (offsets.length === 0) { alert('Offset table has no valid "offset" values.'); throw new Error('No offsets'); }
+                const formData = new FormData();
+                const fileMap = {
+                    'building': cctvInputs.building.geojson,
+                    'parking_area': cctvInputs.parking.geojson,
+                    'pole_points': cctvInputs.poles.geojson,
+                    'camera_table': cctvInputs.camera.geojson,
+                    'offset_table': cctvInputs.offset.geojson
+                };
+                for (const [key, gj] of Object.entries(fileMap)) {
+                    const blob = new Blob([JSON.stringify(gj)], { type: 'application/json' });
+                    formData.append(key, blob, key + '.geojson');
+                }
 
-                // Extract camera specs from camera table GeoJSON
-                const camSpecs = cctvInputs.camera.geojson.features.map(f => ({
-                    type: f.properties.camera_type || 'Unknown',
-                    hfov: parseFloat(f.properties.hfov_deg) || 90,
-                    range: parseFloat(f.properties.range_m) || 30,
-                    price: parseFloat(f.properties.unit_price_rm) || 0
-                }));
-                // Use first camera type for assignment (matching Python: camera_type = 'Type A')
-                const defaultCam = camSpecs[0];
+                setCctvStatus('Running QGIS cctv2 pipeline (may take a minute)…', 'fas fa-cogs fa-beat-fade');
 
-                // ── Step 1: Dissolve buildings + merge with parking → surv_area → buffer → AOI ──
-                setCctvStatus('Step 1/8: Computing AOI from buildings + parking…', 'fas fa-vector-square fa-beat-fade');
-                await new Promise(r => setTimeout(r, 80));
+                const resp = await fetch('/api/cctv/run', { method: 'POST', body: formData });
+                const data = await resp.json();
 
-                // Collect all building + parking polygons to compute combined bounds as AOI
-                const allSurvCoords = [];
-                [cctvInputs.building.geojson, cctvInputs.parking.geojson].forEach(gj => {
-                    gj.features.forEach(f => {
-                        const coords = f.geometry.type === 'Polygon' ? f.geometry.coordinates[0]
-                            : f.geometry.type === 'MultiPolygon' ? f.geometry.coordinates[0][0] : [];
-                        coords.forEach(c => allSurvCoords.push({ lat: c[1], lng: c[0] }));
+                if (!resp.ok || data.error) throw new Error(data.error || 'Server error ' + resp.status);
+
+                setCctvStatus('Rendering QGIS output layers…', 'fas fa-paint-brush fa-beat-fade');
+                await new Promise(r => setTimeout(r, 100));
+
+                const layers = data.layers || {};
+                const layerStyles = {
+                    'aoi':                { color: '#22c55e', weight: 2, fillOpacity: 0.08, dashArray: '6,4' },
+                    'surv_area':          { color: '#0ea5e9', weight: 1.5, fillOpacity: 0.06, dashArray: '4,4' },
+                    'hex_grid':           { color: '#a855f7', weight: 0.6, fillOpacity: 0.04, dashArray: '3,3' },
+                    'dissolved_buildings': { color: '#6366f1', weight: 1.5, fillOpacity: 0.12 },
+                    'candidate_cctv':     { pt: { radius: 4, color: '#ef4444', fillColor: '#ef4444', fillOpacity: 0.8, weight: 1 } },
+                    'poles':              { pt: { radius: 4, color: '#f59e0b', fillColor: '#f59e0b', fillOpacity: 0.8, weight: 1 } },
+                    'cand_cctv_clean':    { pt: { radius: 5, color: '#dc2626', fillColor: '#dc2626', fillOpacity: 0.9, weight: 1.5 } },
+                    'wedge':              { color: '#3b82f6', weight: 1, fillColor: '#3b82f6', fillOpacity: 0.18 },
+                    'camera_cost_summary': null
+                };
+
+                let totalBounds = null;
+                for (const [name, geojson] of Object.entries(layers)) {
+                    if (!geojson || !geojson.features || !geojson.features.length || name === 'camera_cost_summary') continue;
+                    const st = layerStyles[name] || { color: '#64748b', weight: 1, fillOpacity: 0.1 };
+                    const opts = {
+                        onEachFeature: (f, layer) => {
+                            const p = f.properties || {};
+                            let html = '<div style="font-size:0.78rem;"><b>' + name.replace(/_/g,' ').toUpperCase() + '</b><br>';
+                            for (const [k,v] of Object.entries(p)) { if (v != null && v !== '') html += '<b>' + k.trim() + ':</b> ' + v + '<br>'; }
+                            layer.bindPopup(html + '</div>');
+                        }
+                    };
+                    if (st && st.pt) opts.pointToLayer = (f, ll) => L.circleMarker(ll, st.pt);
+                    else if (st) opts.style = st;
+                    const lyr = L.geoJSON(geojson, opts);
+                    cctvResultLayers.addLayer(lyr);
+                    const b = lyr.getBounds();
+                    if (b && b.isValid()) totalBounds = totalBounds ? totalBounds.extend(b) : b;
+                }
+                if (totalBounds) cctvMap.fitBounds(totalBounds, { padding: [60, 60] });
+
+                // Cost summary
+                let html = '<div style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">';
+                if (layers.cand_cctv_clean) html += '<div><span style="font-weight:800; font-size:1rem;">' + (layers.cand_cctv_clean.features||[]).length + '</span><br><span style="font-size:0.65rem;">CCTV Candidates</span></div>';
+                if (layers.wedge) html += '<div><span style="font-weight:800; color:#3b82f6; font-size:1rem;">' + (layers.wedge.features||[]).length + '</span><br><span style="font-size:0.65rem;">FOV Wedges</span></div>';
+                if (layers.hex_grid) html += '<div><span style="font-weight:800; color:#a855f7;">' + (layers.hex_grid.features||[]).length + '</span><br><span style="font-size:0.65rem;">Hex Cells</span></div>';
+                if (layers.poles) html += '<div><span style="font-weight:800; color:#f59e0b;">' + (layers.poles.features||[]).length + '</span><br><span style="font-size:0.65rem;">Poles</span></div>';
+                html += '</div>';
+
+                const cs = layers.camera_cost_summary;
+                if (cs && cs.features && cs.features.length) {
+                    html += '<div style="margin-top:10px; font-weight:700; font-size:0.72rem; color:#92400e;">Cost Breakdown (QGIS):</div>';
+                    let total = 0;
+                    cs.features.forEach(f => {
+                        const p = f.properties || {};
+                        const t = (p.camera_type || p['camera_type\n'] || '?').trim();
+                        const c = p.count || p['count\n'] || 0;
+                        const u = p.unit_price_rm || p['unit_price_rm\n'] || 0;
+                        const tc = p.total_cost_rm || p['total_cost_rm\n'] || 0;
+                        total += tc;
+                        html += '<div style="font-size:0.7rem; padding:4px 0; border-bottom:1px solid #fde68a;">' + t + ': ' + c + ' × RM ' + Number(u).toLocaleString() + ' = <b>RM ' + Number(tc).toLocaleString() + '</b></div>';
                     });
-                });
-
-                if (allSurvCoords.length < 3) { alert('Not enough geometry in building/parking files.'); throw new Error('Too few coords'); }
-
-                // Compute convex hull of all surv points as the AOI (simplified dissolve)
-                const hull = convexHull(allSurvCoords);
-                const aoiLatLngs = hull.map(p => ({ lat: p.lat, lng: p.lng }));
-
-                // Buffer the AOI
-                const bufferedPts = bufferPolygon(aoiLatLngs, bufferDist);
-                const aoiBufferPoly = L.polygon(bufferedPts, { color: '#22c55e', weight: 1.5, fillColor: '#22c55e', fillOpacity: 0.08, dashArray: '4,4' });
-                cctvResultLayers.addLayer(aoiBufferPoly);
-
-                // ── Step 2: Generate hex grid inside buffered AOI ──
-                setCctvStatus('Step 2/8: Generating hex grid…', 'fas fa-th fa-beat-fade');
-                await new Promise(r => setTimeout(r, 80));
-
-                const bounds = aoiBufferPoly.getBounds();
-                const hexCentroids = generateHexGrid(bounds, hexSpacing, bufferedPts);
-
-                hexCentroids.forEach(c => {
-                    const hexPoly = createHexagon(c.lat, c.lng, hexSpacing / 2);
-                    L.polygon(hexPoly, { color: '#a855f7', weight: 0.8, fillColor: '#a855f7', fillOpacity: 0.06, dashArray: '3,3' }).addTo(cctvResultLayers);
-                });
-
-                // ── Step 3: Extract building edge candidates (vertices from building polygons) ──
-                setCctvStatus('Step 3/8: Extracting building candidates…', 'fas fa-building fa-beat-fade');
-                await new Promise(r => setTimeout(r, 80));
-
-                const buildingCandidates = [];
-                cctvInputs.building.geojson.features.forEach((f, fi) => {
-                    const rings = f.geometry.type === 'Polygon' ? f.geometry.coordinates
-                        : f.geometry.type === 'MultiPolygon' ? f.geometry.coordinates[0] : [];
-                    if (rings.length > 0) {
-                        const outerRing = rings[0];
-                        // Extract every vertex (simulating: polygons → lines → extract vertices → dedup)
-                        const seen = new Set();
-                        outerRing.forEach((c, ci) => {
-                            const key = c[1].toFixed(7) + ',' + c[0].toFixed(7);
-                            if (!seen.has(key)) {
-                                seen.add(key);
-                                buildingCandidates.push({
-                                    lat: c[1], lng: c[0], type: 'building',
-                                    source: (f.properties.osm_id || f.properties.id || 'bldg_' + fi),
-                                });
-                            }
-                        });
-                    }
-                });
-
-                // ── Step 4: Filter pole points within parking → within AOI buffer ──
-                setCctvStatus('Step 4/8: Filtering pole candidates…', 'fas fa-map-pin fa-beat-fade');
-                await new Promise(r => setTimeout(r, 80));
-
-                const parkingPolys = cctvInputs.parking.geojson.features.map(f => {
-                    const ring = f.geometry.type === 'Polygon' ? f.geometry.coordinates[0] : (f.geometry.type === 'MultiPolygon' ? f.geometry.coordinates[0][0] : []);
-                    return ring.map(c => [c[1], c[0]]);
-                });
-
-                const poleCandidates = [];
-                cctvInputs.poles.geojson.features.forEach(f => {
-                    if (f.geometry.type !== 'Point') return;
-                    const lng = f.geometry.coordinates[0], lat = f.geometry.coordinates[1];
-                    // Check: within any parking polygon AND within buffered AOI
-                    const inParking = parkingPolys.some(poly => isPointInPolygon([lat, lng], poly));
-                    const inAoi = isPointInPolygon([lat, lng], bufferedPts);
-                    if (inParking && inAoi) {
-                        poleCandidates.push({ lat, lng, type: 'pole', source: f.properties.id || f.properties.osm_id || 'pole' });
-                    }
-                });
-
-                const allCandidates = [...buildingCandidates, ...poleCandidates];
-
-                // ── Step 5: Compute base azimuth (candidate → nearest hex centroid) ──
-                setCctvStatus('Step 5/8: Computing base azimuths…', 'fas fa-compass fa-beat-fade');
-                await new Promise(r => setTimeout(r, 80));
-
-                allCandidates.forEach(cand => {
-                    let nearestHex = null, minDist = Infinity;
-                    hexCentroids.forEach(h => {
-                        const d = haversineM(cand.lat, cand.lng, h.lat, h.lng);
-                        if (d < minDist) { minDist = d; nearestHex = h; }
-                    });
-                    cand.baseAz = nearestHex ? (bearing(cand.lat, cand.lng, nearestHex.lat, nearestHex.lng) + 360) % 360 : 0;
-                });
-
-                // ── Step 6: Apply offsets → N camera positions per candidate, join camera specs ──
-                setCctvStatus('Step 6/8: Applying offsets & assigning cameras…', 'fas fa-sync-alt fa-beat-fade');
-                await new Promise(r => setTimeout(r, 80));
-
-                const cameraPositions = [];
-                allCandidates.forEach(cand => {
-                    offsets.forEach(offset => {
-                        // Match camera type by joining with camera table (Python: join by camera_type)
-                        // Default all to first camera spec (matching Python: camera_type = 'Type A')
-                        cameraPositions.push({
-                            lat: cand.lat, lng: cand.lng,
-                            azimuth: (cand.baseAz + offset) % 360,
-                            type: cand.type, source: cand.source,
-                            camera: defaultCam.type, hfov: defaultCam.hfov, range: defaultCam.range, price: defaultCam.price
-                        });
-                    });
-                });
-
-                // ── Step 7: Generate wedge FOVs & render ──
-                setCctvStatus('Step 7/8: Generating FOV wedges & rendering…', 'fas fa-eye fa-beat-fade');
-                await new Promise(r => setTimeout(r, 80));
-
-                const drawnBuildings = new Set(), drawnPoles = new Set();
-                cameraPositions.forEach(cam => {
-                    cam.wedge = generateWedge(cam.lat, cam.lng, cam.azimuth, cam.hfov, cam.range);
-                    const key = cam.lat.toFixed(7) + ',' + cam.lng.toFixed(7);
-
-                    if (cam.type === 'building' && !drawnBuildings.has(key)) {
-                        drawnBuildings.add(key);
-                        const icon = L.divIcon({ className: '', html: '<div style="background:#ef4444; width:9px; height:9px; border:1.5px solid white; box-shadow:0 1px 4px rgba(0,0,0,0.3);"></div>', iconSize: [9, 9] });
-                        L.marker([cam.lat, cam.lng], { icon }).bindPopup('<b>Building Candidate</b><br>ID: ' + cam.source).addTo(cctvResultLayers);
-                    } else if (cam.type === 'pole' && !drawnPoles.has(key)) {
-                        drawnPoles.add(key);
-                        const icon = L.divIcon({ className: '', html: '<div style="background:#f59e0b; width:9px; height:9px; border-radius:2px; border:1.5px solid white; box-shadow:0 1px 4px rgba(0,0,0,0.3);"></div>', iconSize: [9, 9] });
-                        L.marker([cam.lat, cam.lng], { icon }).bindPopup('<b>Pole Candidate</b><br>ID: ' + cam.source).addTo(cctvResultLayers);
-                    }
-
-                    if (cam.wedge) {
-                        L.polygon(cam.wedge, { color: '#3b82f6', weight: 1, fillColor: '#3b82f6', fillOpacity: 0.15 })
-                            .bindPopup('<b>Camera FOV</b><br>Type: ' + cam.camera + '<br>Az: ' + cam.azimuth.toFixed(1) + '°<br>HFOV: ' + cam.hfov + '°<br>Range: ' + cam.range + 'm<br>Cost: RM ' + cam.price.toLocaleString())
-                            .addTo(cctvResultLayers);
-                    }
-                });
-
-                // ── Step 8: Aggregate cost summary ──
-                setCctvStatus('Step 8/8: Computing cost summary…', 'fas fa-calculator fa-beat-fade');
-
-                // Group by camera type for cost summary (matching Python: aggregate by camera_type)
-                const costByType = {};
-                cameraPositions.forEach(c => {
-                    if (!costByType[c.camera]) costByType[c.camera] = { count: 0, unitPrice: c.price, total: 0 };
-                    costByType[c.camera].count++;
-                    costByType[c.camera].total += c.price;
-                });
-
-                const totalCameras = cameraPositions.length;
-                const totalCost = Object.values(costByType).reduce((s, v) => s + v.total, 0);
-
-                let costRows = Object.entries(costByType).map(([type, d]) =>
-                    '<div style="font-size:0.7rem; padding:4px 0; border-bottom:1px solid #fde68a;">'+type+': '+d.count+' cameras × RM '+d.unitPrice.toLocaleString()+' = <b>RM '+d.total.toLocaleString()+'</b></div>'
-                ).join('');
+                    html += '<div style="font-size:0.82rem; font-weight:800; color:#dc2626; margin-top:6px;">Total: RM ' + total.toLocaleString() + '</div>';
+                }
 
                 document.getElementById('cctvResultsPanel').style.display = 'block';
-                document.getElementById('cctvResultsContent').innerHTML =
-                    '<div style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">' +
-                    '<div><span style="font-weight:800; color:#1e293b; font-size:1rem;">' + totalCameras + '</span><br><span style="font-size:0.65rem;">Total Cameras</span></div>' +
-                    '<div><span style="font-weight:800; color:#dc2626; font-size:1rem;">RM ' + totalCost.toLocaleString() + '</span><br><span style="font-size:0.65rem;">Total Cost</span></div>' +
-                    '<div><span style="font-weight:800; color:#ef4444;">' + drawnBuildings.size + '</span><br><span style="font-size:0.65rem;">Building Candidates</span></div>' +
-                    '<div><span style="font-weight:800; color:#f59e0b;">' + drawnPoles.size + '</span><br><span style="font-size:0.65rem;">Pole Candidates</span></div>' +
-                    '<div><span style="font-weight:800; color:#7c3aed;">' + hexCentroids.length + '</span><br><span style="font-size:0.65rem;">Hex Grid Cells</span></div>' +
-                    '<div><span style="font-weight:800; color:#2563eb;">' + offsets.length + '</span><br><span style="font-size:0.65rem;">Offsets</span></div>' +
-                    '</div>' +
-                    '<div style="margin-top:8px;">' + costRows + '</div>';
+                document.getElementById('cctvResultsContent').innerHTML = html;
 
-                cctvMap.fitBounds(aoiBufferPoly.getBounds(), { padding: [60, 60] });
-                setCctvStatus('Pipeline complete — ' + totalCameras + ' cameras placed', 'fas fa-check-circle', 5000);
+                const tot = Object.values(layers).reduce((s,l) => s + ((l && l.features) ? l.features.length : 0), 0);
+                setCctvStatus('QGIS pipeline complete — ' + tot + ' features', 'fas fa-check-circle', 6000);
 
             } catch (err) {
                 console.error('CCTV pipeline error:', err);
                 setCctvStatus('Pipeline error: ' + err.message, 'fas fa-times-circle');
+                alert('CCTV Pipeline failed:\n' + err.message);
             } finally {
                 runBtn.disabled = false;
                 runBtn.innerHTML = '<i class="fas fa-play mr-1"></i> Run CCTV Pipeline';
@@ -4670,99 +4531,6 @@
             cctvResultLayers.clearLayers();
             document.getElementById('cctvResultsPanel').style.display = 'none';
             setCctvStatus('Results cleared', 'fas fa-check-circle', 2000);
-        }
-
-        // ── Geometry Helpers ──
-        function convexHull(points) {
-            if (points.length < 3) return points;
-            const sorted = points.slice().sort((a,b) => a.lng - b.lng || a.lat - b.lat);
-            function cross(O, A, B) { return (A.lng-O.lng)*(B.lat-O.lat) - (A.lat-O.lat)*(B.lng-O.lng); }
-            const lower = [];
-            for (const p of sorted) { while (lower.length >= 2 && cross(lower[lower.length-2], lower[lower.length-1], p) <= 0) lower.pop(); lower.push(p); }
-            const upper = [];
-            for (let i = sorted.length-1; i >= 0; i--) { const p = sorted[i]; while (upper.length >= 2 && cross(upper[upper.length-2], upper[upper.length-1], p) <= 0) upper.pop(); upper.push(p); }
-            upper.pop(); lower.pop();
-            return lower.concat(upper);
-        }
-
-        function haversineM(lat1, lng1, lat2, lng2) {
-            const R = 6378137, dLat = (lat2-lat1)*Math.PI/180, dLng = (lng2-lng1)*Math.PI/180;
-            const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
-            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-        }
-
-        function bearing(lat1, lng1, lat2, lng2) {
-            const dLng = (lng2-lng1)*Math.PI/180;
-            const y = Math.sin(dLng)*Math.cos(lat2*Math.PI/180);
-            const x = Math.cos(lat1*Math.PI/180)*Math.sin(lat2*Math.PI/180) - Math.sin(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.cos(dLng);
-            return (Math.atan2(y,x)*180/Math.PI + 360) % 360;
-        }
-
-        function bufferPolygon(latlngs, distM) {
-            // Simple outward offset (approximate for small distances)
-            const center = latlngs.reduce((acc, p) => ({ lat: acc.lat + p.lat/latlngs.length, lng: acc.lng + p.lng/latlngs.length }), { lat:0, lng:0 });
-            const degOffset = distM / 111320;
-            return latlngs.map(p => {
-                const dx = p.lng - center.lng, dy = p.lat - center.lat;
-                const dist = Math.sqrt(dx*dx + dy*dy);
-                if (dist === 0) return [p.lat, p.lng];
-                const scale = (dist + degOffset) / dist;
-                return [center.lat + dy*scale, center.lng + dx*scale];
-            });
-        }
-
-        function isPointInPolygon(point, polygon) {
-            let inside = false;
-            const x = point[0], y = point[1];
-            for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-                const xi = polygon[i][0]||polygon[i].lat, yi = polygon[i][1]||polygon[i].lng;
-                const xj = polygon[j][0]||polygon[j].lat, yj = polygon[j][1]||polygon[j].lng;
-                if ((yi > y) !== (yj > y) && x < (xj-xi)*(y-yi)/(yj-yi)+xi) inside = !inside;
-            }
-            return inside;
-        }
-
-        function generateHexGrid(bounds, spacingM, clipPoly) {
-            const centroids = [];
-            const dLat = spacingM / 111320;
-            const dLng = spacingM / (111320 * Math.cos(bounds.getCenter().lat * Math.PI / 180));
-            const rowH = dLat * Math.sqrt(3);
-            let row = 0;
-            for (let lat = bounds.getSouth(); lat <= bounds.getNorth(); lat += rowH) {
-                const offset = (row % 2 === 1) ? dLng / 2 : 0;
-                for (let lng = bounds.getWest() + offset; lng <= bounds.getEast(); lng += dLng) {
-                    if (isPointInPolygon([lat, lng], clipPoly)) {
-                        centroids.push({ lat, lng });
-                    }
-                }
-                row++;
-            }
-            return centroids;
-        }
-
-        function createHexagon(lat, lng, radiusM) {
-            const pts = [];
-            for (let i = 0; i < 6; i++) {
-                const angle = (60 * i - 30) * Math.PI / 180;
-                const dLat = (radiusM / 111320) * Math.sin(angle);
-                const dLng = (radiusM / (111320 * Math.cos(lat * Math.PI / 180))) * Math.cos(angle);
-                pts.push([lat + dLat, lng + dLng]);
-            }
-            return pts;
-        }
-
-        function generateWedge(lat, lng, azimuth, hfov, rangeM) {
-            const pts = [[lat, lng]];
-            const halfFov = hfov / 2;
-            const steps = 16;
-            for (let i = 0; i <= steps; i++) {
-                const angle = (azimuth - halfFov + (hfov * i / steps)) * Math.PI / 180;
-                const dLat = (rangeM / 6378137) * Math.cos(angle);
-                const dLng = (rangeM / 6378137) * Math.sin(angle) / Math.cos(lat * Math.PI / 180);
-                pts.push([lat + dLat * 180 / Math.PI, lng + dLng * 180 / Math.PI]);
-            }
-            pts.push([lat, lng]);
-            return pts;
         }
 
         // ── CCTV Search ──
