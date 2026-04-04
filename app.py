@@ -1755,33 +1755,25 @@ def chat_endpoint():
 @login_required
 def api_cctv_run():
     """
-    Receives 5 GeoJSON files, runs the cctv2 QGIS processing algorithm,
-    and returns the key output layers as GeoJSON for map display.
-    
+    Receives 5 input files, runs the CCTV planning pipeline using
+    cctv2_pipeline.py (pure Python/Shapely/GeoPandas — no QGIS needed),
+    and returns the output layers as GeoJSON for map display.
+
     Expected form fields (multipart/form-data):
         - building:     GeoJSON file (polygon)
         - parking_area: GeoJSON file (polygon)
         - pole_points:  GeoJSON file (point)
-        - camera_table: GeoJSON file (table with camera specs)
-        - offset_table: GeoJSON file (table with offset values)
+        - camera_table: CSV file (camera_type, hfov_deg, range_m, unit_price_rm)
+        - offset_table: CSV file (offset)
     """
     import tempfile
-    import subprocess
-    import glob
-
-    REQUIRED_INPUTS = ['building', 'parking_area', 'pole_points', 'camera_table', 'offset_table']
-    OUTPUT_LAYERS = [
-        'cand_cctv_clean', 'wedge', 'camera_cost_summary',
-        'aoi', 'surv_area', 'hex_grid', 'candidate_cctv',
-        'dissolved_buildings', 'poles'
-    ]
+    import shutil
 
     try:
-        # ── 1. Save uploaded files to temp directory ──
         tmpdir = tempfile.mkdtemp(prefix='cctv_')
         input_paths = {}
 
-        # GeoJSON inputs
+        # Save GeoJSON inputs
         for key in ['building', 'parking_area', 'pole_points']:
             if key not in request.files:
                 return jsonify({'error': f'Missing required input: {key}'}), 400
@@ -1790,7 +1782,7 @@ def api_cctv_run():
             f.save(path)
             input_paths[key] = path
 
-        # CSV inputs (camera_table, offset_table)
+        # Save CSV inputs
         for key in ['camera_table', 'offset_table']:
             if key not in request.files:
                 return jsonify({'error': f'Missing required input: {key}'}), 400
@@ -1799,172 +1791,26 @@ def api_cctv_run():
             f.save(path)
             input_paths[key] = path
 
-        # ── 2. Build output paths ──
-        output_paths = {}
-        for layer_name in OUTPUT_LAYERS:
-            output_paths[layer_name] = os.path.join(tmpdir, f'{layer_name}.geojson')
+        # Run the pipeline
+        from cctv2_pipeline import run_cctv_pipeline
 
-        # ── 3. Write the config JSON for the runner script ──
-        config = {
-            'cctv2_dir': os.path.dirname(os.path.abspath(__file__)),
-            'input_paths': input_paths,
-            'output_paths': output_paths,
-        }
-        config_path = os.path.join(tmpdir, 'config.json')
-        with open(config_path, 'w') as cf:
-            json.dump(config, cf)
-
-        # ── 4. Write the runner script (no f-string — plain string) ──
-        runner_script = os.path.join(tmpdir, 'run_cctv2.py')
-        with open(runner_script, 'w') as rf:
-            rf.write(r'''
-import sys, os, json
-
-# Load config
-with open(os.path.join(os.path.dirname(__file__), "config.json")) as f:
-    CFG = json.load(f)
-
-try:
-    from qgis.core import (
-        QgsApplication, QgsVectorLayer, QgsProcessingFeedback,
-        QgsProcessingContext, QgsProject, QgsCoordinateReferenceSystem
-    )
-except ImportError:
-    print(json.dumps({"error": "PyQGIS is not installed on this server"}))
-    sys.exit(1)
-
-# Initialize QGIS (headless)
-QgsApplication.setPrefixPath("/usr", True)
-qgs = QgsApplication([], False)
-qgs.initQgis()
-
-try:
-    import processing
-    from processing.core.Processing import Processing
-    Processing.initialize()
-except Exception as e:
-    print(json.dumps({"error": f"Failed to init QGIS processing: {e}"}))
-    sys.exit(1)
-
-# Import cctv2 algorithm
-sys.path.insert(0, CFG["cctv2_dir"])
-from cctv2 import Cctv2
-
-# Load GeoJSON layers
-def load_layer(path, name):
-    lyr = QgsVectorLayer(path, name, "ogr")
-    if not lyr.isValid():
-        print(json.dumps({"error": f"Failed to load {name} from {path}"}))
-        sys.exit(1)
-    QgsProject.instance().addMapLayer(lyr, False)
-    return lyr
-
-building = load_layer(CFG["input_paths"]["building"], "building")
-parking  = load_layer(CFG["input_paths"]["parking_area"], "parking_area")
-poles    = load_layer(CFG["input_paths"]["pole_points"], "pole_points")
-
-# Load CSV tables
-cam_path = CFG["input_paths"]["camera_table"].replace("\\", "/")
-off_path = CFG["input_paths"]["offset_table"].replace("\\", "/")
-cam_uri  = f"file:///{cam_path}?delimiter=,&type=csv"
-off_uri  = f"file:///{off_path}?delimiter=,&type=csv"
-
-camera_tbl = QgsVectorLayer(cam_uri, "camera_table", "delimitedtext")
-offset_tbl = QgsVectorLayer(off_uri, "offset_table", "delimitedtext")
-
-if not camera_tbl.isValid():
-    print(json.dumps({"error": f"Failed to load camera_table from {cam_path}"}))
-    sys.exit(1)
-if not offset_tbl.isValid():
-    print(json.dumps({"error": f"Failed to load offset_table from {off_path}"}))
-    sys.exit(1)
-
-QgsProject.instance().addMapLayer(camera_tbl, False)
-QgsProject.instance().addMapLayer(offset_tbl, False)
-
-# Set CRS
-crs = QgsCoordinateReferenceSystem("EPSG:4326")
-for lyr in [building, parking, poles, camera_tbl, offset_tbl]:
-    if not lyr.crs().isValid():
-        lyr.setCrs(crs)
-
-# Build params
-params = {
-    "building": building,
-    "parking_area": parking,
-    "pole_points": poles,
-    "camera_table": camera_tbl,
-    "offset_table": offset_tbl,
-}
-for key, path in CFG["output_paths"].items():
-    params[key] = path
-
-# Run
-feedback = QgsProcessingFeedback()
-context = QgsProcessingContext()
-context.setProject(QgsProject.instance())
-
-alg = Cctv2()
-alg.initAlgorithm()
-results = alg.processAlgorithm(params, context, feedback)
-
-print(json.dumps({"status": "success", "results": {k: str(v) for k, v in results.items()}}))
-qgs.exitQgis()
-''')
-
-        # ── 5. Run the QGIS processing script ──
-        result = subprocess.run(
-            ['python3', runner_script],
-            capture_output=True, text=True, timeout=300,
-            cwd=tmpdir,
-            env={**os.environ, 'QT_QPA_PLATFORM': 'offscreen'}
+        results = run_cctv_pipeline(
+            building_path=input_paths['building'],
+            parking_path=input_paths['parking_area'],
+            poles_path=input_paths['pole_points'],
+            camera_csv_path=input_paths['camera_table'],
+            offset_csv_path=input_paths['offset_table'],
         )
 
-        # Try to parse stdout as JSON (even if returncode != 0, runner may have printed error JSON)
-        runner_output = None
-        if result.stdout:
-            for line in result.stdout.strip().split('\n'):
-                line = line.strip()
-                if line.startswith('{'):
-                    try:
-                        runner_output = json.loads(line)
-                    except json.JSONDecodeError:
-                        pass
-
-        if result.returncode != 0:
-            error_msg = 'QGIS processing failed'
-            if runner_output and 'error' in runner_output:
-                error_msg = runner_output['error']
-            return jsonify({
-                'error': error_msg,
-                'detail': (result.stderr or '')[-2000:]
-            }), 500
-
-        # ── 6. Read output GeoJSON files and return them ──
-        response_data = {'status': 'success', 'layers': {}}
-
-        for layer_name in OUTPUT_LAYERS:
-            path = output_paths[layer_name]
-            if os.path.exists(path) and os.path.getsize(path) > 0:
-                with open(path, 'r') as gf:
-                    try:
-                        response_data['layers'][layer_name] = json.load(gf)
-                    except json.JSONDecodeError:
-                        response_data['layers'][layer_name] = None
-            else:
-                response_data['layers'][layer_name] = None
-
         # Cleanup
-        import shutil
         shutil.rmtree(tmpdir, ignore_errors=True)
 
-        return jsonify(response_data)
+        return jsonify({'status': 'success', 'layers': results})
 
-    except subprocess.TimeoutExpired:
-        return jsonify({'error': 'CCTV processing timed out (>5 minutes)'}), 504
     except Exception as e:
         print(traceback.format_exc())
         return jsonify({'error': str(e)}), 500
+
 
 if __name__ == '__main__':
     app.config.update(
