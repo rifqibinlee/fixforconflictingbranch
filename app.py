@@ -521,7 +521,7 @@ def get_users_for_messaging():
         return jsonify([{'id': r[0], 'full_name': r[1], 'username': r[2]} for r in cursor.fetchall()])
 
 @app.route('/api/messages/unread-count', methods=['GET'])
-@@api_login_required
+@api_login_required
 def get_unread_count():
     with get_db_connection() as conn:
         cursor = conn.cursor()
