@@ -1,10 +1,11 @@
 # ==========================================
 # STAGE 1: Builder (Heavy, temporary container)
 # ==========================================
-FROM python:3.11-slim-bookworm AS builder
+FROM python:3.12-slim AS builder
 
 WORKDIR /app
 
+# Install heavy C-compilers and development headers
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     build-essential \
@@ -12,37 +13,33 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
+# Create a virtual environment so we can easily copy all installed packages later
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
+# Install Python packages into the virtual environment
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # ==========================================
 # STAGE 2: Production (Lightweight, final container)
 # ==========================================
-FROM python:3.11-slim-bookworm
+FROM python:3.12-slim
 
 ENV PYTHONFAULTHANDLER=1 \
     PYTHONUNBUFFERED=1 \
     FLASK_APP=app.py \
     FLASK_RUN_HOST=0.0.0.0 \
     FLASK_RUN_PORT=5000 \
-    PATH="/opt/venv/bin:$PATH" \
-    QT_QPA_PLATFORM=offscreen \
-    QGIS_PREFIX_PATH=/usr \
-    PYTHONPATH="/usr/share/qgis/python:/usr/share/qgis/python/plugins:/usr/lib/python3/dist-packages"
+    PATH="/opt/venv/bin:$PATH"
 
 WORKDIR /app
 
-# Install runtime libs + QGIS from Debian Bookworm's own repos (supports ARM64)
-# No need for external QGIS repo — Bookworm ships QGIS 3.34.x
+# Install ONLY the runtime libraries needed to execute (no compilers!)
+# libpq5 is the runtime equivalent of libpq-dev
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq5 \
     postgresql-client \
-    qgis-server \
-    python3-qgis \
-    xvfb \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy the pre-compiled Python packages from the builder stage
