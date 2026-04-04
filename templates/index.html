@@ -318,6 +318,23 @@
             <button id="tabBtn3D" onclick="switchMainTab('3d')" class="text-white opacity-70 hover:opacity-100 font-bold border-b-2 border-transparent hover:border-white pb-1 transition-all">
                 <i class="fas fa-cube mr-1"></i> 3D Map
             </button>
+
+            <!-- Tools dropdown -->
+            <div class="relative" id="toolsDropdownWrapper">
+                <button id="tabBtnTools" onclick="toggleToolsDropdown()" class="text-white opacity-70 hover:opacity-100 font-bold border-b-2 border-transparent hover:border-white pb-1 transition-all flex items-center gap-1">
+                    <i class="fas fa-toolbox mr-1"></i> Tools <i class="fas fa-chevron-down text-[10px] ml-1"></i>
+                </button>
+                <div id="toolsDropdown" class="hidden absolute left-1/2 -translate-x-1/2 mt-3 w-64 bg-white rounded-xl shadow-2xl overflow-hidden text-gray-700 border border-gray-100 z-[9999]">
+                    <button onclick="switchMainTab('cctv')" class="w-full text-left px-4 py-3 hover:bg-blue-50 flex items-center gap-3 border-b border-gray-100 transition-colors">
+                        <div class="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center"><i class="fas fa-video text-blue-600 text-sm"></i></div>
+                        <div><div class="font-bold text-sm text-gray-800">CCTV Planning</div><div class="text-[11px] text-gray-400">Site coverage & camera placement</div></div>
+                    </button>
+                    <button onclick="switchMainTab('bitcoin')" class="w-full text-left px-4 py-3 hover:bg-amber-50 flex items-center gap-3 transition-colors">
+                        <div class="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center"><i class="fab fa-bitcoin text-amber-600 text-sm"></i></div>
+                        <div><div class="font-bold text-sm text-gray-800">Illegal Bitcoin Mining</div><div class="text-[11px] text-gray-400">Anomaly detection candidates</div></div>
+                    </button>
+                </div>
+            </div>
         </div>
 
         <div class="flex items-center gap-3">
@@ -810,6 +827,42 @@
                     style="width:100%; padding:10px 14px 10px 36px; border:none; border-radius:10px; font-size:0.85rem; background:rgba(255,255,255,0.95); box-shadow:0 4px 20px rgba(0,0,0,0.25); outline:none; color:#1e293b; font-weight:500;"
                     oninput="onCesiumSearch(this.value)" autocomplete="off" />
                 <div id="cesiumSearchResults" style="position:absolute; top:100%; left:0; right:0; background:white; border-radius:0 0 10px 10px; max-height:240px; overflow-y:auto; box-shadow:0 10px 25px rgba(0,0,0,0.2); display:none; z-index:101;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CCTV Planning Tool -->
+    <div id="cctvContainer" style="display:none; position:absolute; top:72px; bottom:0; left:0; right:0; overflow:hidden;">
+        <!-- CCTV Status bar -->
+        <div id="cctvStatus" style="position:absolute; bottom:24px; left:50%; transform:translateX(-50%); z-index:200; background:rgba(15,23,42,0.9); color:white; padding:10px 24px; border-radius:10px; font-size:0.85rem; font-weight:600; display:flex; align-items:center; gap:10px; box-shadow:0 4px 20px rgba(0,0,0,0.3); pointer-events:none; transition: opacity 0.5s;">
+            <i class="fas fa-circle-notch fa-spin" id="cctvStatusSpinner"></i>
+            <span id="cctvStatusText">Loading CCTV Planning tool…</span>
+        </div>
+        <!-- CCTV Search bar -->
+        <div style="position:absolute; top:16px; left:50%; transform:translateX(-50%); z-index:200; width:380px;">
+            <div style="position:relative;">
+                <i class="fas fa-search" style="position:absolute; left:12px; top:50%; transform:translateY(-50%); color:#94a3b8; font-size:0.85rem;"></i>
+                <input id="cctvSearchInput" type="text" placeholder="Search site ID or name…"
+                    style="width:100%; padding:10px 14px 10px 36px; border:none; border-radius:10px; font-size:0.85rem; background:rgba(255,255,255,0.95); box-shadow:0 4px 20px rgba(0,0,0,0.25); outline:none; color:#1e293b; font-weight:500;"
+                    oninput="onCctvSearch(this.value)" autocomplete="off" />
+                <div id="cctvSearchResults" style="position:absolute; top:100%; left:0; right:0; background:white; border-radius:0 0 10px 10px; max-height:240px; overflow-y:auto; box-shadow:0 10px 25px rgba(0,0,0,0.2); display:none; z-index:201;"></div>
+            </div>
+        </div>
+        <!-- CCTV Map -->
+        <div id="cctvMap" style="width:100%; height:100%;"></div>
+    </div>
+
+    <!-- Illegal Bitcoin Mining Tool (Placeholder) -->
+    <div id="bitcoinContainer" style="display:none; position:absolute; top:72px; bottom:0; left:0; right:0; overflow:hidden; background:#f8fafc;">
+        <div style="display:flex; align-items:center; justify-content:center; height:100%; flex-direction:column; gap:20px;">
+            <div style="width:100px; height:100px; border-radius:24px; background:linear-gradient(135deg, #f59e0b, #d97706); display:flex; align-items:center; justify-content:center; box-shadow:0 8px 30px rgba(217,119,6,0.3);">
+                <i class="fab fa-bitcoin" style="font-size:3rem; color:white;"></i>
+            </div>
+            <h2 style="font-size:1.5rem; font-weight:800; color:#1e293b;">Illegal Bitcoin Mining Detection</h2>
+            <p style="color:#64748b; font-size:0.95rem; max-width:450px; text-align:center; line-height:1.6;">This tool identifies anomalous energy consumption patterns that may indicate unauthorized cryptocurrency mining operations at cell sites.</p>
+            <div style="background:#fef3c7; border:1px solid #fde68a; border-radius:10px; padding:14px 24px; display:flex; align-items:center; gap:10px;">
+                <i class="fas fa-hard-hat" style="color:#d97706; font-size:1.1rem;"></i>
+                <span style="color:#92400e; font-weight:600; font-size:0.85rem;">Under Development — Coming Soon</span>
             </div>
         </div>
     </div>
@@ -1317,6 +1370,8 @@
             const dashboardView = document.getElementById('dashboardView');
             const mapContainer = document.getElementById('mapContainer');
             const map3dContainer = document.getElementById('map3dContainer');
+            const cctvContainer = document.getElementById('cctvContainer');
+            const bitcoinContainer = document.getElementById('bitcoinContainer');
             const dashboardChat = document.getElementById('chatWidget');
             const mapChatBtn = document.getElementById('mapChatToggleBtn');
             const mapChatPnl = document.getElementById('mapChatPanel');
@@ -1328,46 +1383,70 @@
             if (dashboardView) dashboardView.style.display = 'none';
             if (mapContainer) mapContainer.style.display = 'none';
             if (map3dContainer) map3dContainer.style.display = 'none';
+            if (cctvContainer) cctvContainer.style.display = 'none';
+            if (bitcoinContainer) bitcoinContainer.style.display = 'none';
 
             // Reset all tab buttons
             document.getElementById('tabBtnDashboard').className = inactiveClass;
             document.getElementById('tabBtnMap').className = inactiveClass;
             document.getElementById('tabBtn3D').className = inactiveClass;
+            // Reset tools button
+            const toolsBtn = document.getElementById('tabBtnTools');
+            toolsBtn.className = toolsBtn.className.replace('border-white', 'border-transparent').replace(/(?<!\-)opacity-100/g, 'opacity-70');
+
+            // Hide chats for all non-map tabs
+            if (dashboardChat) dashboardChat.style.display = 'none';
+            if (mapChatBtn) mapChatBtn.style.display = 'none';
+            if (mapChatPnl) { mapChatPnl.classList.add('hidden'); mapChatPnl.classList.remove('flex'); }
+
+            // Close tools dropdown
+            const dd = document.getElementById('toolsDropdown');
+            if (dd) dd.classList.add('hidden');
 
             if (tab === 'dashboard') {
                 if (dashboardView) dashboardView.style.display = 'block';
                 if (dashboardChat) dashboardChat.style.display = '';
-                if (mapChatBtn) mapChatBtn.style.display = 'none';
-                if (mapChatPnl) { mapChatPnl.classList.add('hidden'); mapChatPnl.classList.remove('flex'); }
                 document.getElementById('tabBtnDashboard').className = activeClass;
-
-                setTimeout(() => {
-                    if (window.dispatchEvent) window.dispatchEvent(new Event('resize'));
-                }, 100);
+                setTimeout(() => { if (window.dispatchEvent) window.dispatchEvent(new Event('resize')); }, 100);
 
             } else if (tab === 'map') {
                 if (mapContainer) mapContainer.style.display = 'block';
-                if (dashboardChat) dashboardChat.style.display = 'none';
                 if (mapChatBtn) mapChatBtn.style.display = '';
                 document.getElementById('tabBtnMap').className = activeClass;
-
-                setTimeout(() => {
-                    if (typeof initMapIfNeeded === 'function') initMapIfNeeded();
-                }, 200);
+                setTimeout(() => { if (typeof initMapIfNeeded === 'function') initMapIfNeeded(); }, 200);
 
             } else if (tab === '3d') {
                 if (map3dContainer) map3dContainer.style.display = 'block';
-                if (dashboardChat) dashboardChat.style.display = 'none';
-                if (mapChatBtn) mapChatBtn.style.display = 'none';
-                if (mapChatPnl) { mapChatPnl.classList.add('hidden'); mapChatPnl.classList.remove('flex'); }
                 document.getElementById('tabBtn3D').className = activeClass;
+                setTimeout(() => { if (typeof initCesiumIfNeeded === 'function') initCesiumIfNeeded(); }, 200);
 
-                // Initialize Cesium viewer on first visit
-                setTimeout(() => {
-                    if (typeof initCesiumIfNeeded === 'function') initCesiumIfNeeded();
-                }, 200);
+            } else if (tab === 'cctv') {
+                if (cctvContainer) cctvContainer.style.display = 'block';
+                // Highlight tools button
+                toolsBtn.classList.remove('opacity-70', 'border-transparent');
+                toolsBtn.classList.add('opacity-100', 'border-white');
+                setTimeout(() => { if (typeof initCctvMap === 'function') initCctvMap(); }, 200);
+
+            } else if (tab === 'bitcoin') {
+                if (bitcoinContainer) bitcoinContainer.style.display = 'block';
+                toolsBtn.classList.remove('opacity-70', 'border-transparent');
+                toolsBtn.classList.add('opacity-100', 'border-white');
             }
         }
+
+        function toggleToolsDropdown() {
+            const dd = document.getElementById('toolsDropdown');
+            dd.classList.toggle('hidden');
+        }
+
+        // Close tools dropdown when clicking outside
+        document.addEventListener('click', function(e) {
+            const wrapper = document.getElementById('toolsDropdownWrapper');
+            const dd = document.getElementById('toolsDropdown');
+            if (wrapper && dd && !wrapper.contains(e.target)) {
+                dd.classList.add('hidden');
+            }
+        });
 
     // --- DASHBOARD CONTROLLER & DATA LOGIC ---
         const Dashboard = {
@@ -3981,6 +4060,243 @@
             makePanelResizable('tasksPanel',      'tasksResizeHandle');
             makePanelResizable('notesPanel',      'notesResizeHandle');
         })();
+
+        // ==========================================
+        // CCTV PLANNING MAP
+        // ==========================================
+        let cctvMap = null;
+        let cctvInitialized = false;
+        let cctvSiteDataCache = [];
+
+        function setCctvStatus(msg, icon, autohide) {
+            const el = document.getElementById('cctvStatus');
+            const txt = document.getElementById('cctvStatusText');
+            const spin = document.getElementById('cctvStatusSpinner');
+            if (!el) return;
+            txt.textContent = msg;
+            spin.className = icon || 'fas fa-circle-notch fa-spin';
+            el.style.opacity = '1';
+            if (autohide) {
+                setTimeout(() => { el.style.opacity = '0'; }, autohide);
+            }
+        }
+
+        async function initCctvMap() {
+            if (cctvInitialized) {
+                cctvMap.invalidateSize();
+                return;
+            }
+            cctvInitialized = true;
+
+            setCctvStatus('Initializing map…', 'fas fa-circle-notch fa-spin');
+
+            // Create Leaflet map
+            cctvMap = L.map('cctvMap', {
+                center: [3.1390, 101.6869],
+                zoom: 12,
+                zoomControl: true
+            });
+
+            // Satellite tile layer
+            L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                attribution: '&copy; Esri',
+                maxZoom: 19
+            }).addTo(cctvMap);
+
+            // Add road label overlay
+            L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}', {
+                maxZoom: 19, opacity: 0.7
+            }).addTo(cctvMap);
+
+            // Coverage layer groups
+            const cctv5G = L.layerGroup().addTo(cctvMap);
+            const cctv4G = L.layerGroup().addTo(cctvMap);
+            const cctv3G = L.layerGroup().addTo(cctvMap);
+            const cctv2G = L.layerGroup().addTo(cctvMap);
+
+            L.control.layers(null, {
+                "<span style='color:#eab308; font-weight:800;'>5G</span>": cctv5G,
+                "<span style='color:#3b82f6; font-weight:800;'>4G</span>": cctv4G,
+                "<span style='color:#f97316; font-weight:800;'>3G</span>": cctv3G,
+                "<span style='color:#6b7280; font-weight:800;'>2G</span>": cctv2G
+            }, { collapsed: false, position: 'topright' }).addTo(cctvMap);
+
+            // Fetch site data
+            setCctvStatus('Fetching site data…', 'fas fa-database fa-beat-fade');
+            try {
+                const params = new URLSearchParams();
+                const weekSel = document.getElementById('weekSelect');
+                const regionSel = document.getElementById('regionSelect');
+                if (weekSel && weekSel.value && weekSel.value !== 'All') params.set('week', weekSel.value);
+                if (regionSel && regionSel.value && regionSel.value !== 'All') params.set('region', regionSel.value);
+
+                let data;
+                if (siteDataCache && siteDataCache.length > 0) {
+                    data = siteDataCache;
+                } else {
+                    const resp = await fetch('/api/sites?' + params.toString());
+                    data = await resp.json();
+                    if (!Array.isArray(data)) data = [];
+                }
+
+                cctvSiteDataCache = data.filter(s => {
+                    if (!s || !s.site_id) return false;
+                    const lat = parseFloat(s.lat); const lng = parseFloat(s.lng);
+                    return !isNaN(lat) && !isNaN(lng) && (lat !== 0 || lng !== 0);
+                });
+
+                if (cctvSiteDataCache.length === 0) {
+                    setCctvStatus('No site data available', 'fas fa-exclamation-triangle', 6000);
+                    return;
+                }
+
+                setCctvStatus('Rendering ' + cctvSiteDataCache.length + ' sites with coverage…', 'fas fa-broadcast-tower fa-beat-fade');
+                await new Promise(r => setTimeout(r, 50));
+
+                // Helper: annulus sector (same as main map)
+                function cctvAnnulusSector(lat, lng, azimuth, innerR, outerR, bw) {
+                    const R = 6378137;
+                    const startAngle = (azimuth - bw / 2) * (Math.PI / 180);
+                    const endAngle = (azimuth + bw / 2) * (Math.PI / 180);
+                    const latRad = lat * (Math.PI / 180), lngRad = lng * (Math.PI / 180);
+                    const pts = []; const steps = 24;
+                    // Outer arc
+                    for (let i = 0; i <= steps; i++) {
+                        const a = startAngle + (endAngle - startAngle) * (i / steps);
+                        const dLat = (outerR / R) * Math.cos(a);
+                        const dLng = (outerR / R) * Math.sin(a) / Math.cos(latRad);
+                        pts.push([(latRad + dLat) * 180 / Math.PI, (lngRad + dLng) * 180 / Math.PI]);
+                    }
+                    // Inner arc (reversed)
+                    for (let i = steps; i >= 0; i--) {
+                        const a = startAngle + (endAngle - startAngle) * (i / steps);
+                        const dLat = (innerR / R) * Math.cos(a);
+                        const dLng = (innerR / R) * Math.sin(a) / Math.cos(latRad);
+                        pts.push([(latRad + dLat) * 180 / Math.PI, (lngRad + dLng) * 180 / Math.PI]);
+                    }
+                    return pts;
+                }
+
+                const cctvMarkers = L.markerClusterGroup({ disableClusteringAtZoom: 14, maxClusterRadius: 50 });
+
+                cctvSiteDataCache.forEach(site => {
+                    site.lat = parseFloat(site.lat);
+                    site.lng = parseFloat(site.lng);
+
+                    // Marker (neutral blue — no congestion colouring)
+                    const icon = L.divIcon({
+                        className: 'custom-pin',
+                        html: '<div style="background:#2563eb; width:12px; height:12px; border-radius:50%; border:2px solid white; box-shadow:0 2px 5px rgba(0,0,0,0.3);"></div>',
+                        iconSize: [12, 12]
+                    });
+
+                    const popupHtml = '<div style="padding:10px; min-width:200px;">' +
+                        '<div style="font-weight:800; font-size:1rem; color:#1e3a8a; margin-bottom:4px;">' + (site.site_id || '') + '</div>' +
+                        '<div style="font-size:0.8rem; color:#64748b; margin-bottom:8px;">' + (site.site_name || 'Unnamed') + '</div>' +
+                        '<div style="font-size:0.72rem; color:#94a3b8;">Region: ' + (site.region || '-') + '</div>' +
+                        (site.sectors ? '<div style="font-size:0.72rem; color:#94a3b8;">Sectors: ' + site.sectors.length + '</div>' : '') +
+                        '</div>';
+
+                    const marker = L.marker([site.lat, site.lng], { icon: icon }).bindPopup(popupHtml);
+                    cctvMarkers.addLayer(marker);
+
+                    // Draw coverage sectors automatically
+                    if (site.coverage && site.coverage.length > 0) {
+                        const azGroups = {};
+                        site.coverage.forEach(sec => {
+                            const a = parseFloat(sec.az);
+                            if (!azGroups[a]) azGroups[a] = {};
+                            azGroups[a][sec.tech] = sec;
+                        });
+
+                        Object.entries(azGroups).forEach(([azStr, techs]) => {
+                            const az = parseFloat(azStr);
+                            const config = [
+                                { tech: '5G', inner: 0, outer: 0.25, color: '#eab308', layer: cctv5G },
+                                { tech: '4G', inner: 0.25, outer: 0.50, color: '#3b82f6', layer: cctv4G },
+                                { tech: '3G', inner: 0.50, outer: 0.75, color: '#f97316', layer: cctv3G },
+                                { tech: '2G', inner: 0.75, outer: 1.00, color: '#6b7280', layer: cctv2G }
+                            ];
+                            const maxRad = Math.max(...Object.values(techs).map(t => t.rad || 1000));
+
+                            config.forEach(c => {
+                                if (techs[c.tech]) {
+                                    const bw = techs[c.tech].bw || 65;
+                                    const polyPts = cctvAnnulusSector(site.lat, site.lng, az, maxRad * c.inner, maxRad * c.outer, bw);
+                                    L.polygon(polyPts, { color: c.color, weight: 1, fillOpacity: 0.35 }).addTo(c.layer);
+                                }
+                            });
+                        });
+                    }
+                });
+
+                cctvMap.addLayer(cctvMarkers);
+
+                // Fit to bounds
+                if (cctvSiteDataCache.length > 0) {
+                    const lats = cctvSiteDataCache.map(s => s.lat);
+                    const lngs = cctvSiteDataCache.map(s => s.lng);
+                    cctvMap.fitBounds([
+                        [Math.min(...lats), Math.min(...lngs)],
+                        [Math.max(...lats), Math.max(...lngs)]
+                    ], { padding: [40, 40] });
+                }
+
+                setCctvStatus(cctvSiteDataCache.length + ' sites loaded with coverage', 'fas fa-check-circle', 4000);
+
+            } catch (err) {
+                console.error('CCTV map init error:', err);
+                setCctvStatus('Failed to load sites: ' + err.message, 'fas fa-times-circle');
+            }
+        }
+
+        // ── CCTV Search ──
+        let cctvSearchTimeout = null;
+
+        function onCctvSearch(query) {
+            clearTimeout(cctvSearchTimeout);
+            const resultsDiv = document.getElementById('cctvSearchResults');
+            if (!query || query.length < 2) { resultsDiv.style.display = 'none'; return; }
+
+            cctvSearchTimeout = setTimeout(() => {
+                const q = query.toUpperCase();
+                const matches = cctvSiteDataCache.filter(s => {
+                    return (s.site_id || '').toUpperCase().includes(q) || (s.site_name || '').toUpperCase().includes(q);
+                }).slice(0, 15);
+
+                if (matches.length === 0) {
+                    resultsDiv.innerHTML = '<div style="padding:12px 16px; color:#94a3b8; font-size:0.82rem;">No sites found</div>';
+                    resultsDiv.style.display = 'block';
+                    return;
+                }
+
+                resultsDiv.innerHTML = matches.map(s =>
+                    `<div onclick="flyToCctvSite('${s.site_id}')" style="padding:10px 16px; cursor:pointer; display:flex; align-items:center; gap:10px; border-bottom:1px solid #f1f5f9; transition:background 0.15s;"
+                        onmouseover="this.style.background='#f0f9ff'" onmouseout="this.style.background='white'">
+                        <i class="fas fa-broadcast-tower" style="color:#2563eb; font-size:0.9rem; width:18px; text-align:center;"></i>
+                        <div style="flex:1; min-width:0;">
+                            <div style="font-weight:700; font-size:0.82rem; color:#1e293b;">${s.site_id}</div>
+                            <div style="font-size:0.72rem; color:#64748b; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${s.site_name || 'Unnamed'}</div>
+                        </div>
+                    </div>`
+                ).join('');
+                resultsDiv.style.display = 'block';
+            }, 150);
+        }
+
+        function flyToCctvSite(siteId) {
+            document.getElementById('cctvSearchResults').style.display = 'none';
+            const site = cctvSiteDataCache.find(s => s.site_id === siteId);
+            if (!site || !cctvMap) return;
+            document.getElementById('cctvSearchInput').value = site.site_id + ' — ' + (site.site_name || '');
+            cctvMap.flyTo([site.lat, site.lng], 16, { duration: 1 });
+        }
+
+        document.addEventListener('click', function(e) {
+            const sb = document.getElementById('cctvSearchInput');
+            const rd = document.getElementById('cctvSearchResults');
+            if (sb && rd && !sb.contains(e.target) && !rd.contains(e.target)) rd.style.display = 'none';
+        });
 
         // ==========================================
         // METABASE DASHBOARD EMBEDDING
