@@ -795,8 +795,15 @@
             <span id="cesiumStatusText">Initializing 3D viewer…</span>
         </div>
 
-        <!-- Search bar -->
-        <div style="position:absolute; top:16px; left:50%; transform:translateX(-50%); z-index:100; width:380px;">
+        <!-- Load Cell Sites button -->
+        <button id="cesiumLoadSitesBtn" onclick="toggleCesiumSites()" style="display:none; position:absolute; top:16px; left:16px; z-index:100; background:#1d4ed8; color:white; border:none; padding:10px 20px; border-radius:10px; font-size:0.85rem; font-weight:700; cursor:pointer; align-items:center; gap:8px; box-shadow:0 4px 20px rgba(0,0,0,0.25); transition: all 0.2s;"
+            onmouseover="this.style.transform='translateY(-1px)'; this.style.boxShadow='0 6px 24px rgba(0,0,0,0.3)'"
+            onmouseout="this.style.transform=''; this.style.boxShadow='0 4px 20px rgba(0,0,0,0.25)'">
+            <i class="fas fa-broadcast-tower"></i> Load Cell Sites
+        </button>
+
+        <!-- Search bar (hidden until sites are loaded) -->
+        <div id="cesiumSearchBar" style="display:none; position:absolute; top:16px; left:50%; transform:translateX(-50%); z-index:100; width:380px;">
             <div style="position:relative;">
                 <i class="fas fa-search" style="position:absolute; left:12px; top:50%; transform:translateY(-50%); color:#94a3b8; font-size:0.85rem;"></i>
                 <input id="cesiumSearchInput" type="text" placeholder="Search site ID or name…"
@@ -4057,44 +4064,91 @@
                     destination: Cesium.Cartesian3.fromDegrees(101.6869, 3.1390, 1500)
                 });
 
-                // Load site data if not already cached
-                if (!siteDataCache || siteDataCache.length === 0) {
-                    setCesiumStatus('Fetching site data from server…', 'fas fa-database fa-beat-fade');
-                    try {
-                        const params = new URLSearchParams();
-                        const weekSel = document.getElementById('weekSelect');
-                        const regionSel = document.getElementById('regionSelect');
-                        if (weekSel && weekSel.value && weekSel.value !== 'All') params.set('week', weekSel.value);
-                        if (regionSel && regionSel.value && regionSel.value !== 'All') params.set('region', regionSel.value);
-                        const resp = await fetch('/api/sites?' + params.toString());
-                        const data = await resp.json();
-                        if (Array.isArray(data)) {
-                            siteDataCache = data.filter(s => {
-                                if (!s || !s.site_id) return false;
-                                const lat = parseFloat(s.lat); const lng = parseFloat(s.lng);
-                                return !isNaN(lat) && !isNaN(lng) && (lat !== 0 || lng !== 0);
-                            });
-                        }
-                    } catch (fetchErr) {
-                        console.warn('3D map: could not fetch site data:', fetchErr);
-                    }
-                }
+                setCesiumStatus('3D viewer ready', 'fas fa-check-circle', 3000);
+                // Show the "Load Cell Sites" button
+                document.getElementById('cesiumLoadSitesBtn').style.display = 'flex';
 
-                if (siteDataCache && siteDataCache.length > 0) {
-                    setCesiumStatus('Building ' + siteDataCache.length + ' cell towers…', 'fas fa-broadcast-tower fa-beat-fade');
-                    // Use setTimeout to let the status message render before the heavy loop
-                    await new Promise(resolve => setTimeout(resolve, 100));
-                    add3dSiteMarkers();
-                    setCesiumStatus(siteDataCache.length + ' sites loaded successfully', 'fas fa-check-circle', 4000);
-                } else {
-                    setCesiumStatus('No site data available — load data from the Coverage Map tab first', 'fas fa-exclamation-triangle', 8000);
-                }
             } catch (e) {
                 console.error('Cesium init error:', e);
                 setCesiumStatus('Failed to load 3D Map: ' + e.message, 'fas fa-times-circle');
                 document.getElementById('cesiumContainer').innerHTML =
                     '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#dc2626;font-weight:bold;font-size:1.1rem;"><i class="fas fa-exclamation-triangle" style="margin-right:8px;"></i> Failed to load 3D Map: ' + e.message + '</div>';
             }
+        }
+
+        // ==========================================
+        // LOAD / UNLOAD 3D CELL SITES (USER-TRIGGERED)
+        // ==========================================
+        let cesiumSitesLoaded = false;
+
+        async function toggleCesiumSites() {
+            const btn = document.getElementById('cesiumLoadSitesBtn');
+            const searchBar = document.getElementById('cesiumSearchBar');
+
+            if (cesiumSitesLoaded) {
+                // Unload sites
+                cesiumViewer.entities.removeAll();
+                cesiumSitesLoaded = false;
+                btn.innerHTML = '<i class="fas fa-broadcast-tower"></i> Load Cell Sites';
+                btn.style.background = '#1d4ed8';
+                searchBar.style.display = 'none';
+                setCesiumStatus('Cell sites removed', 'fas fa-check-circle', 2500);
+                return;
+            }
+
+            // Load sites
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Loading…';
+            btn.style.opacity = '0.7';
+
+            // Fetch data if needed
+            if (!siteDataCache || siteDataCache.length === 0) {
+                setCesiumStatus('Fetching site data from server…', 'fas fa-database fa-beat-fade');
+                try {
+                    const params = new URLSearchParams();
+                    const weekSel = document.getElementById('weekSelect');
+                    const regionSel = document.getElementById('regionSelect');
+                    if (weekSel && weekSel.value && weekSel.value !== 'All') params.set('week', weekSel.value);
+                    if (regionSel && regionSel.value && regionSel.value !== 'All') params.set('region', regionSel.value);
+                    const resp = await fetch('/api/sites?' + params.toString());
+                    const data = await resp.json();
+                    if (Array.isArray(data)) {
+                        siteDataCache = data.filter(s => {
+                            if (!s || !s.site_id) return false;
+                            const lat = parseFloat(s.lat); const lng = parseFloat(s.lng);
+                            return !isNaN(lat) && !isNaN(lng) && (lat !== 0 || lng !== 0);
+                        });
+                    }
+                } catch (fetchErr) {
+                    console.warn('3D map: could not fetch site data:', fetchErr);
+                    setCesiumStatus('Failed to fetch site data: ' + fetchErr.message, 'fas fa-times-circle', 5000);
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-broadcast-tower"></i> Load Cell Sites';
+                    btn.style.opacity = '1';
+                    return;
+                }
+            }
+
+            if (!siteDataCache || siteDataCache.length === 0) {
+                setCesiumStatus('No site data available — try loading data from the Coverage Map tab first', 'fas fa-exclamation-triangle', 6000);
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-broadcast-tower"></i> Load Cell Sites';
+                btn.style.opacity = '1';
+                return;
+            }
+
+            setCesiumStatus('Building ' + siteDataCache.length + ' cell towers…', 'fas fa-broadcast-tower fa-beat-fade');
+            await new Promise(r => setTimeout(r, 100));
+
+            add3dSiteMarkers();
+            cesiumSitesLoaded = true;
+
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-eye-slash"></i> Unload Cell Sites';
+            btn.style.background = '#dc2626';
+            btn.style.opacity = '1';
+            searchBar.style.display = '';
+            setCesiumStatus(siteDataCache.length + ' sites loaded successfully', 'fas fa-check-circle', 4000);
         }
 
         // ==========================================
