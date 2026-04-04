@@ -10,6 +10,7 @@ import traceback
 import math
 import time
 import requests
+from functools import wraps
 
 # --- AI AGENT IMPORT ---
 # from agent.router import ask_vibe_agent
