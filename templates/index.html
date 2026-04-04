@@ -913,29 +913,29 @@
                         </div>
                     </div>
 
-                    <!-- Camera Table (table/attribute) -->
+                    <!-- Camera Table (CSV) -->
                     <div style="margin-bottom:8px;">
                         <label style="font-size:0.68rem; font-weight:700; color:#4b5563; display:flex; align-items:center; gap:4px; margin-bottom:3px;">
-                            <i class="fas fa-video" style="color:#dc2626; width:14px;"></i> Camera Table <span style="color:#94a3b8; font-weight:400;">(properties: camera_type, hfov_deg, range_m, unit_price_rm)</span>
+                            <i class="fas fa-video" style="color:#dc2626; width:14px;"></i> Camera Table <span style="color:#94a3b8; font-weight:400;">(CSV: camera_type, hfov_deg, range_m, unit_price_rm)</span>
                         </label>
                         <div style="display:flex; gap:4px;">
                             <label style="flex:1; display:flex; align-items:center; gap:6px; padding:6px 10px; border:1px dashed #fecaca; border-radius:5px; background:#fef2f2; cursor:pointer; font-size:0.72rem; color:#991b1b; font-weight:600; transition:background 0.15s;" onmouseover="this.style.background='#fee2e2'" onmouseout="this.style.background='#fef2f2'">
                                 <i class="fas fa-upload"></i> <span id="cctvCameraLabel">Choose file…</span>
-                                <input type="file" id="cctvCameraFile" accept=".geojson,.json" onchange="cctvFileLoaded(this,'camera')" style="display:none;" />
+                                <input type="file" id="cctvCameraFile" accept=".csv" onchange="cctvCsvLoaded(this,'camera')" style="display:none;" />
                             </label>
                             <button id="cctvCameraClear" onclick="cctvClearFile('camera')" style="display:none; background:#fee2e2; border:none; border-radius:5px; padding:0 8px; cursor:pointer; color:#dc2626; font-size:0.7rem;" title="Remove"><i class="fas fa-times"></i></button>
                         </div>
                     </div>
 
-                    <!-- Offset Table (table/attribute) -->
+                    <!-- Offset Table (CSV) -->
                     <div>
                         <label style="font-size:0.68rem; font-weight:700; color:#4b5563; display:flex; align-items:center; gap:4px; margin-bottom:3px;">
-                            <i class="fas fa-compass" style="color:#7c3aed; width:14px;"></i> Offset Table <span style="color:#94a3b8; font-weight:400;">(property: offset)</span>
+                            <i class="fas fa-compass" style="color:#7c3aed; width:14px;"></i> Offset Table <span style="color:#94a3b8; font-weight:400;">(CSV: offset)</span>
                         </label>
                         <div style="display:flex; gap:4px;">
                             <label style="flex:1; display:flex; align-items:center; gap:6px; padding:6px 10px; border:1px dashed #ddd6fe; border-radius:5px; background:#f5f3ff; cursor:pointer; font-size:0.72rem; color:#5b21b6; font-weight:600; transition:background 0.15s;" onmouseover="this.style.background='#ede9fe'" onmouseout="this.style.background='#f5f3ff'">
                                 <i class="fas fa-upload"></i> <span id="cctvOffsetLabel">Choose file…</span>
-                                <input type="file" id="cctvOffsetFile" accept=".geojson,.json" onchange="cctvFileLoaded(this,'offset')" style="display:none;" />
+                                <input type="file" id="cctvOffsetFile" accept=".csv" onchange="cctvCsvLoaded(this,'offset')" style="display:none;" />
                             </label>
                             <button id="cctvOffsetClear" onclick="cctvClearFile('offset')" style="display:none; background:#fee2e2; border:none; border-radius:5px; padding:0 8px; cursor:pointer; color:#dc2626; font-size:0.7rem;" title="Remove"><i class="fas fa-times"></i></button>
                         </div>
@@ -4224,14 +4224,57 @@
         let cctvSiteMarkers = null;
         let cctvIsDrawing = false;
 
-        // Uploaded GeoJSON data stores
+        // Uploaded data stores
         const cctvInputs = {
             building: { geojson: null, layer: null, color: '#6366f1' },
             parking:  { geojson: null, layer: null, color: '#0891b2' },
             poles:    { geojson: null, layer: null, color: '#d97706' },
-            camera:   { geojson: null, layer: null, color: '#dc2626' },
-            offset:   { geojson: null, layer: null, color: '#7c3aed' }
+            camera:   { csv: null, rows: null, layer: null, color: '#dc2626' },
+            offset:   { csv: null, rows: null, layer: null, color: '#7c3aed' }
         };
+
+        // CSV parser for camera and offset tables
+        function cctvCsvLoaded(input, type) {
+            const file = input.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const text = e.target.result.trim();
+                    const lines = text.split(/\r?\n/);
+                    if (lines.length < 2) throw new Error('CSV needs a header row and at least one data row');
+                    const headers = lines[0].split(',').map(h => h.trim());
+                    const rows = [];
+                    for (let i = 1; i < lines.length; i++) {
+                        if (!lines[i].trim()) continue;
+                        const vals = lines[i].split(',').map(v => v.trim());
+                        const row = {};
+                        headers.forEach((h, idx) => { row[h] = vals[idx] || ''; });
+                        rows.push(row);
+                    }
+
+                    cctvInputs[type].csv = text;
+                    cctvInputs[type].rows = rows;
+
+                    const label = document.getElementById('cctv' + type.charAt(0).toUpperCase() + type.slice(1) + 'Label');
+                    document.getElementById('cctv' + type.charAt(0).toUpperCase() + type.slice(1) + 'Clear').style.display = '';
+
+                    if (type === 'camera') {
+                        const info = rows.map(r => (r.camera_type || '?') + ': ' + (r.hfov_deg||'?') + '°/' + (r.range_m||'?') + 'm/RM' + (r.unit_price_rm||'?')).join('; ');
+                        label.textContent = file.name + ' (' + rows.length + ' types) — ' + info;
+                    } else {
+                        const info = rows.map(r => r.offset + '°').join(', ');
+                        label.textContent = file.name + ' (' + rows.length + ' offsets) — ' + info;
+                    }
+
+                    cctvUpdateUploadSummary();
+                    setCctvStatus(type.charAt(0).toUpperCase() + type.slice(1) + ' CSV loaded — ' + rows.length + ' rows', 'fas fa-check-circle', 3000);
+                } catch (err) {
+                    alert('Error reading ' + type + ' CSV: ' + err.message);
+                }
+            };
+            reader.readAsText(file);
+        }
 
         function cctvFileLoaded(input, type) {
             const file = input.files[0];
@@ -4243,9 +4286,8 @@
                     if (!gj.type || !gj.features) throw new Error('Invalid GeoJSON');
                     cctvInputs[type].geojson = gj;
 
-                    // Update label
                     const label = document.getElementById('cctv' + type.charAt(0).toUpperCase() + type.slice(1) + 'Label');
-                    label.textContent = file.name + ' (' + gj.features.length + ')';
+                    label.textContent = file.name + ' (' + gj.features.length + ' features)';
                     document.getElementById('cctv' + type.charAt(0).toUpperCase() + type.slice(1) + 'Clear').style.display = '';
 
                     // Draw on map
@@ -4254,17 +4296,8 @@
                         ? { pointToLayer: (f, ll) => L.circleMarker(ll, { radius: 4, color: cctvInputs[type].color, fillColor: cctvInputs[type].color, fillOpacity: 0.7, weight: 1 }) }
                         : { style: { color: cctvInputs[type].color, weight: 2, fillOpacity: 0.15 } };
 
-                    // camera and offset are attribute tables — don't render geometrically, just show summary
-                    if (type === 'camera' || type === 'offset') {
-                        const props = gj.features.map(f => f.properties);
-                        const info = type === 'camera'
-                            ? props.map(p => p.camera_type + ': ' + p.hfov_deg + '° / ' + p.range_m + 'm / RM' + p.unit_price_rm).join(', ')
-                            : props.map(p => p.offset + '°').join(', ');
-                        label.textContent = file.name + ' — ' + info;
-                    } else {
-                        cctvInputs[type].layer = L.geoJSON(gj, style).addTo(cctvMap);
-                        cctvMap.fitBounds(cctvInputs[type].layer.getBounds(), { padding: [40, 40] });
-                    }
+                    cctvInputs[type].layer = L.geoJSON(gj, style).addTo(cctvMap);
+                    cctvMap.fitBounds(cctvInputs[type].layer.getBounds(), { padding: [40, 40] });
 
                     cctvUpdateUploadSummary();
                     setCctvStatus(type.charAt(0).toUpperCase() + type.slice(1) + ' loaded — ' + gj.features.length + ' features', 'fas fa-check-circle', 3000);
@@ -4276,7 +4309,8 @@
         }
 
         function cctvClearFile(type) {
-            cctvInputs[type].geojson = null;
+            if (cctvInputs[type].geojson !== undefined) cctvInputs[type].geojson = null;
+            if (cctvInputs[type].csv !== undefined) { cctvInputs[type].csv = null; cctvInputs[type].rows = null; }
             if (cctvInputs[type].layer) { cctvMap.removeLayer(cctvInputs[type].layer); cctvInputs[type].layer = null; }
             const label = document.getElementById('cctv' + type.charAt(0).toUpperCase() + type.slice(1) + 'Label');
             label.textContent = 'Choose file…';
@@ -4286,13 +4320,16 @@
         }
 
         function cctvUpdateUploadSummary() {
-            const loaded = Object.entries(cctvInputs).filter(([k, v]) => v.geojson !== null);
             const el = document.getElementById('cctvUploadSummary');
             const txt = document.getElementById('cctvUploadSummaryText');
+            const required = ['building', 'parking', 'poles', 'camera', 'offset'];
+            const loaded = required.filter(r => {
+                if (r === 'camera' || r === 'offset') return cctvInputs[r].csv !== null;
+                return cctvInputs[r].geojson !== null;
+            });
             if (loaded.length === 0) { el.style.display = 'none'; return; }
             el.style.display = 'block';
-            const required = ['building', 'parking', 'poles', 'camera', 'offset'];
-            const missing = required.filter(r => !cctvInputs[r].geojson);
+            const missing = required.filter(r => !loaded.includes(r));
             if (missing.length === 0) {
                 txt.textContent = 'All 5 inputs loaded — ready to run pipeline';
                 el.style.background = '#d1fae5'; el.style.borderColor = '#6ee7b7'; el.style.color = '#065f46';
@@ -4417,8 +4454,8 @@
             if (!cctvInputs.building.geojson) missing.push('Building');
             if (!cctvInputs.parking.geojson) missing.push('Parking Area');
             if (!cctvInputs.poles.geojson) missing.push('Pole Points');
-            if (!cctvInputs.camera.geojson) missing.push('Camera Table');
-            if (!cctvInputs.offset.geojson) missing.push('Offset Table');
+            if (!cctvInputs.camera.csv) missing.push('Camera Table');
+            if (!cctvInputs.offset.csv) missing.push('Offset Table');
             if (missing.length > 0) { alert('Missing inputs: ' + missing.join(', ')); return; }
             if (!cctvMap) return;
 
@@ -4431,17 +4468,14 @@
                 setCctvStatus('Uploading files to QGIS server…', 'fas fa-upload fa-beat-fade');
 
                 const formData = new FormData();
-                const fileMap = {
-                    'building': cctvInputs.building.geojson,
-                    'parking_area': cctvInputs.parking.geojson,
-                    'pole_points': cctvInputs.poles.geojson,
-                    'camera_table': cctvInputs.camera.geojson,
-                    'offset_table': cctvInputs.offset.geojson
-                };
-                for (const [key, gj] of Object.entries(fileMap)) {
-                    const blob = new Blob([JSON.stringify(gj)], { type: 'application/json' });
+                // GeoJSON inputs
+                for (const [key, inputKey] of [['building','building'],['parking_area','parking'],['pole_points','poles']]) {
+                    const blob = new Blob([JSON.stringify(cctvInputs[inputKey].geojson)], { type: 'application/json' });
                     formData.append(key, blob, key + '.geojson');
                 }
+                // CSV inputs
+                formData.append('camera_table', new Blob([cctvInputs.camera.csv], { type: 'text/csv' }), 'camera_table.csv');
+                formData.append('offset_table', new Blob([cctvInputs.offset.csv], { type: 'text/csv' }), 'offset_table.csv');
 
                 setCctvStatus('Running QGIS cctv2 pipeline (may take a minute)…', 'fas fa-cogs fa-beat-fade');
 
