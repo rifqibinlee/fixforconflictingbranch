@@ -9,10 +9,7 @@ import boto3
 import traceback
 import math
 import time
-from functools import wraps
-import jwt  # Required for Metabase stateless embedding
-import time
-
+import requests
 
 # --- AI AGENT IMPORT ---
 # from agent.router import ask_vibe_agent
@@ -78,11 +75,6 @@ ATHENA_CACHE_SETTINGS = {
 }
 
 RAM_CACHE = {}
-
-# --- ADD THIS NEAR YOUR OTHER CONFIGS ---
-METABASE_SITE_URL = os.environ.get('METABASE_URL', 'http://localhost:3000')
-# You will get this key from the Metabase Admin panel after first boot:
-METABASE_SECRET_KEY = os.environ.get('METABASE_SECRET_KEY', '8ae5c543ec8f19731d2ceb89e16bf69b1b12dfef062948fd33aba308d0a32980')
 
 def api_login_required(f):
     """Decorator for API routes that returns JSON instead of redirecting"""
@@ -529,7 +521,7 @@ def get_users_for_messaging():
         return jsonify([{'id': r[0], 'full_name': r[1], 'username': r[2]} for r in cursor.fetchall()])
 
 @app.route('/api/messages/unread-count', methods=['GET'])
-@api_login_required
+@@api_login_required
 def get_unread_count():
     with get_db_connection() as conn:
         cursor = conn.cursor()
@@ -993,42 +985,45 @@ def api_filters_regions():
         return jsonify(df['reg'].tolist())
     except Exception: return jsonify([])
 
-@app.route('/api/dashboard/embed')
+@app.route('/api/superset/guest-token')
 @api_login_required
-def get_metabase_embed_url():
-    """
-    Generates a secure, stateless JWT iframe URL for Metabase.
-    No cookies, no sessions, no cross-origin errors!
-    """
-    # In Metabase, dashboards have an integer ID (e.g., 1, 2, 3) instead of a UUID
-    dashboard_id = request.args.get('dashboard_id', type=int)
-    
+def get_superset_guest_token():
+    dashboard_id = request.args.get('dashboard_id')
     if not dashboard_id:
         return jsonify({"error": "Dashboard ID required"}), 400
 
     try:
-        # Create the stateless token payload
-        payload = {
-            "resource": {"dashboard": dashboard_id},
-            "params": {
-                # If you want to automatically pass the Flask user's region/role into 
-                # the Metabase dashboard filters, you map them here.
-                # "region": session.get('region', 'All') 
+        # 1. Authenticate with Superset internally over the Docker network
+        login_res = requests.post(
+            'http://superset:8088/api/v1/security/login',
+            json={"username": "admin", "password": "admin", "provider": "db"}, # Replace with your actual admin password
+            timeout=5
+        )
+        login_res.raise_for_status()
+        access_token = login_res.json().get('access_token')
+
+        # 2. Request a temporary Guest Token for the specific dashboard
+        guest_token_res = requests.post(
+            'http://superset:8088/api/v1/security/guest_token/',
+            headers={"Authorization": f"Bearer {access_token}"},
+            json={
+                "user": {
+                    "username": session.get('username'), 
+                    "first_name": "NetAlytics", 
+                    "last_name": "Admin"
+                },
+                "resources": [{"type": "dashboard", "id": dashboard_id}],
+                "rls": [] # Row Level Security (we can use this later to filter data by region!)
             },
-            "exp": round(time.time()) + (60 * 10) # Token expires in 10 minutes
-        }
+            timeout=5
+        )
+        guest_token_res.raise_for_status()
         
-        # Cryptographically sign the token using the Metabase Secret Key
-        token = jwt.encode(payload, METABASE_SECRET_KEY, algorithm="HS256")
-        
-        # Construct the final iframe URL
-        iframe_url = f"{METABASE_SITE_URL}/embed/dashboard/{token}#bordered=false&titled=false&theme=night"
-        
-        return jsonify({"iframeUrl": iframe_url})
+        return jsonify({"token": guest_token_res.json().get('token')})
 
     except Exception as e:
-        print(f"Metabase Token Error: {e}")
-        return jsonify({"error": "Failed to generate analytics token"}), 500
+        print(f"Superset Token Error: {e}")
+        return jsonify({"error": "Failed to communicate with analytics engine"}), 500
 
 @app.route('/api/dashboard/stats')
 def api_dashboard_stats():
@@ -1751,6 +1746,179 @@ def download_congested():
 def chat_endpoint():
     return jsonify({"reply": "The VIBE AI Agent is temporarily offline for architectural upgrades.", "status": "success"})
 
+
+# =====================================================================
+# CCTV PLANNING PIPELINE (runs cctv2.py via PyQGIS processing)
+# =====================================================================
+
+@app.route('/api/cctv/run', methods=['POST'])
+@login_required
+def api_cctv_run():
+    """
+    Receives 5 GeoJSON files, runs the cctv2 QGIS processing algorithm,
+    and returns the key output layers as GeoJSON for map display.
+    
+    Expected form fields (multipart/form-data):
+        - building:     GeoJSON file (polygon)
+        - parking_area: GeoJSON file (polygon)
+        - pole_points:  GeoJSON file (point)
+        - camera_table: GeoJSON file (table with camera specs)
+        - offset_table: GeoJSON file (table with offset values)
+    """
+    import tempfile
+    import subprocess
+    import glob
+
+    REQUIRED_INPUTS = ['building', 'parking_area', 'pole_points', 'camera_table', 'offset_table']
+    OUTPUT_LAYERS = [
+        'cand_cctv_clean', 'wedge', 'camera_cost_summary',
+        'aoi', 'surv_area', 'hex_grid', 'candidate_cctv',
+        'dissolved_buildings', 'poles'
+    ]
+
+    try:
+        # ── 1. Save uploaded GeoJSON files to temp directory ──
+        tmpdir = tempfile.mkdtemp(prefix='cctv_')
+        input_paths = {}
+
+        for key in REQUIRED_INPUTS:
+            if key not in request.files:
+                return jsonify({'error': f'Missing required input: {key}'}), 400
+            f = request.files[key]
+            path = os.path.join(tmpdir, f'{key}.geojson')
+            f.save(path)
+            input_paths[key] = path
+
+        # ── 2. Build the QGIS processing command ──
+        # We run a standalone Python script that imports qgis.core and processing,
+        # loads the cctv2 algorithm, and writes outputs as GeoJSON.
+
+        output_paths = {}
+        for layer_name in OUTPUT_LAYERS:
+            output_paths[layer_name] = os.path.join(tmpdir, f'{layer_name}.geojson')
+
+        runner_script = os.path.join(tmpdir, 'run_cctv2.py')
+        with open(runner_script, 'w') as rf:
+            rf.write(f'''
+import sys
+import os
+import json
+
+# Initialize QGIS application
+from qgis.core import (
+    QgsApplication, QgsVectorLayer, QgsProcessingFeedback,
+    QgsProcessingContext, QgsProject, QgsCoordinateReferenceSystem
+)
+
+# Initialize QGIS
+QgsApplication.setPrefixPath("/usr", True)
+qgs = QgsApplication([], False)
+qgs.initQgis()
+
+# Import processing
+import processing
+from processing.core.Processing import Processing
+Processing.initialize()
+
+# Import the cctv2 algorithm
+sys.path.insert(0, "{os.path.dirname(os.path.abspath(__file__))}")
+from cctv2 import Cctv2
+
+# Load input layers
+def load_layer(path, name, geom_type="ogr"):
+    layer = QgsVectorLayer(path, name, geom_type)
+    if not layer.isValid():
+        print(f"ERROR: Failed to load {{name}} from {{path}}", file=sys.stderr)
+        sys.exit(1)
+    QgsProject.instance().addMapLayer(layer, False)
+    return layer
+
+building    = load_layer("{input_paths['building']}", "building")
+parking     = load_layer("{input_paths['parking_area']}", "parking_area")
+poles       = load_layer("{input_paths['pole_points']}", "pole_points")
+camera_tbl  = load_layer("{input_paths['camera_table']}", "camera_table")
+offset_tbl  = load_layer("{input_paths['offset_table']}", "offset_table")
+
+# Set CRS if not set (assume WGS84)
+crs = QgsCoordinateReferenceSystem("EPSG:4326")
+for lyr in [building, parking, poles, camera_tbl, offset_tbl]:
+    if not lyr.crs().isValid():
+        lyr.setCrs(crs)
+
+# Prepare output paths
+output_paths = {json.dumps({k: v for k, v in zip(
+    {OUTPUT_LAYERS!r},
+    ["{output_paths[ln]}" for ln in OUTPUT_LAYERS]
+)})}
+
+# Build parameters dict
+params = {{
+    "building": building,
+    "parking_area": parking,
+    "pole_points": poles,
+    "camera_table": camera_tbl,
+    "offset_table": offset_tbl,
+}}
+
+# Add output parameters
+for key, path in output_paths.items():
+    params[key] = path
+
+# Run the algorithm
+feedback = QgsProcessingFeedback()
+context  = QgsProcessingContext()
+context.setProject(QgsProject.instance())
+
+alg = Cctv2()
+alg.initAlgorithm()
+results = alg.processAlgorithm(params, context, feedback)
+
+print(json.dumps({{"status": "success", "results": {{k: str(v) for k, v in results.items()}} }}))
+
+qgs.exitQgis()
+''')
+
+        # ── 3. Run the QGIS processing script ──
+        result = subprocess.run(
+            ['python3', runner_script],
+            capture_output=True, text=True, timeout=300,
+            env={**os.environ, 'QT_QPA_PLATFORM': 'offscreen'}
+        )
+
+        if result.returncode != 0:
+            return jsonify({
+                'error': 'QGIS processing failed',
+                'stderr': result.stderr[-2000:] if result.stderr else '',
+                'stdout': result.stdout[-1000:] if result.stdout else ''
+            }), 500
+
+        # ── 4. Read output GeoJSON files and return them ──
+        response_data = {'status': 'success', 'layers': {}}
+
+        for layer_name in OUTPUT_LAYERS:
+            path = output_paths[layer_name]
+            if os.path.exists(path):
+                with open(path, 'r') as gf:
+                    try:
+                        geojson = json.load(gf)
+                        response_data['layers'][layer_name] = geojson
+                    except json.JSONDecodeError:
+                        response_data['layers'][layer_name] = None
+            else:
+                response_data['layers'][layer_name] = None
+
+        # Cleanup
+        import shutil
+        shutil.rmtree(tmpdir, ignore_errors=True)
+
+        return jsonify(response_data)
+
+    except subprocess.TimeoutExpired:
+        return jsonify({'error': 'CCTV processing timed out (>5 minutes)'}), 504
+    except Exception as e:
+        print(traceback.format_exc())
+        return jsonify({'error': str(e)}), 500
+
 if __name__ == '__main__':
     app.config.update(
         SESSION_COOKIE_SECURE=True,  # Use HTTPS in production
@@ -1760,4 +1928,3 @@ if __name__ == '__main__':
     )
     app.run(debug=True, host='0.0.0.0', port=5000)
     # In app.py, after creating the app
-    
