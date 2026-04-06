@@ -5567,18 +5567,22 @@
             document.addEventListener('keydown', function(e) { if (e.key === 'Escape') onCancel(); });
 
             // Keep pegman visible only on map tab; sync left position with sidebar collapse
-            // In the syncPegmanPosition function (around line 3890)
             function syncPegmanPosition() {
-                const ctrl = document.getElementById('mapLayerControl');
+                const ctrl   = document.getElementById('mapLayerControl');
                 const pegman = document.getElementById('pegmanControl');
                 if (!ctrl || !pegman) return;
                 const ctrlRect = ctrl.getBoundingClientRect();
                 const parentRect = ctrl.offsetParent ? ctrl.offsetParent.getBoundingClientRect() : { left: 0 };
-                // Position pegman to the RIGHT of the layers button
-                pegman.style.left = (ctrlRect.right - parentRect.left + 12) + 'px';  // Added +12px spacing
+                // Place pegman immediately to the right of the layer control button
+                pegman.style.left = (ctrlRect.right - parentRect.left + 8) + 'px';
                 pegman.style.bottom = '24px';
-            }addEventListener('resize', syncPegmanPosition);
-                    })();
+            }
+
+            // Run on load and whenever sidebar toggles
+            setTimeout(syncPegmanPosition, 300);
+            document.getElementById('sidebarToggle')?.addEventListener('click', () => setTimeout(syncPegmanPosition, 350));
+            window.addEventListener('resize', syncPegmanPosition);
+        })();
 
         function add3dSiteMarkers() {
             if (!cesiumViewer || !siteDataCache) return;
