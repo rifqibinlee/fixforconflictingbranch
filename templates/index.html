@@ -116,6 +116,97 @@
         .header-btn { position: absolute; right: 16px; bottom: 12px; background: rgba(255,255,255,0.9); color: #1e40af; font-weight: 900; font-size: 0.7rem; padding: 4px 10px; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.2); transition: all 0.2s; border: none; cursor: pointer; display: flex; align-items: center; gap: 4px; }
         .header-btn:hover { background: #ffffff; transform: translateY(-1px); }
 
+        /* Google Maps-style Layer Control */
+        #mapLayerControl {
+            position: absolute;
+            bottom: 24px;
+            left: 366px;
+            z-index: 1100;
+            transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        #layerMenuBtn {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: #ffffff;
+            border: 1.5px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 8px 12px 8px 10px;
+            cursor: pointer;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.18);
+            transition: box-shadow 0.2s, border-color 0.2s, background 0.15s;
+            user-select: none;
+            white-space: nowrap;
+        }
+        #layerMenuBtn:hover { background: #f9fafb; box-shadow: 0 2px 8px rgba(0,0,0,0.18); }
+        #layerMenuBtn:active { background: #f3f4f6; }
+        .traffic-btn-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 6px;
+            background: linear-gradient(135deg, #34a853 0%, #fbbc04 40%, #ea4335 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            position: relative;
+            overflow: hidden;
+        }
+        .traffic-btn-icon::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: repeating-linear-gradient(90deg, transparent 0px, transparent 3px, rgba(255,255,255,0.18) 3px, rgba(255,255,255,0.18) 5px);
+        }
+        .layer-menu-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 7px 14px;
+            cursor: pointer;
+            transition: background 0.15s;
+            user-select: none;
+        }
+        .layer-menu-item:hover { background: #f9fafb; }
+        .layer-menu-icon {
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        .layer-menu-label {
+            flex: 1;
+            font-size: 0.8rem;
+            font-weight: 500;
+            color: #374151;
+        }
+        .layer-toggle-switch {
+            width: 34px;
+            height: 18px;
+            border-radius: 9px;
+            background: #d1d5db;
+            position: relative;
+            flex-shrink: 0;
+            transition: background 0.2s;
+            pointer-events: none;
+        }
+        .layer-toggle-switch.active { background: #2563eb; }
+        .layer-toggle-knob {
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+            transition: left 0.2s;
+        }
+        .layer-toggle-switch.active .layer-toggle-knob { left: 18px; }
+
         .plot-modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 5000; align-items: center; justify-content: center; }
         .plot-modal { background: white; width: 95%; height: 90%; border-radius: 12px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); display: flex; flex-direction: column; overflow: hidden; }
         .plot-modal-header { background: linear-gradient(90deg, #f472b6 0%, #ec4899 100%); color: white; padding: 16px 24px; display: flex; justify-content: space-between;align-items: center; }
@@ -584,6 +675,133 @@
     </div>
 
     <div id="mapContainer" style="position:absolute; top:72px; bottom:0; left:0; right:0; overflow:hidden;">
+
+    <!-- Google Maps-style Traffic Layer Control -->
+    <div id="mapLayerControl">
+        <!-- Trigger Button -->
+        <button id="layerMenuBtn" onclick="toggleLayerMenu()" title="Map Layers">
+            <div class="traffic-btn-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="10" y="2" width="4" height="20" rx="2" fill="white" opacity="0.9"/>
+                    <circle cx="12" cy="6" r="2.2" fill="#ea4335"/>
+                    <circle cx="12" cy="12" r="2.2" fill="#fbbc04"/>
+                    <circle cx="12" cy="18" r="2.2" fill="#34a853"/>
+                </svg>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:flex-start;gap:1px;">
+                <span style="line-height:1.2;font-size:0.78rem;font-weight:600;color:#374151;">Layers</span>
+                <span style="font-size:0.65rem;color:#6b7280;font-weight:400;">Map overlays</span>
+            </div>
+            <i class="fas fa-chevron-up" id="layerMenuChevron" style="font-size:0.6rem;color:#9ca3af;margin-left:2px;transition:transform 0.2s;"></i>
+        </button>
+
+        <!-- Popup Layer Menu -->
+        <div id="layerMenu" style="display:none; position:absolute; bottom:calc(100% + 10px); left:0; background:#fff; border-radius:12px; box-shadow:0 8px 30px rgba(0,0,0,0.18); border:1px solid #e5e7eb; min-width:240px; overflow:hidden; z-index:2000;">
+            <!-- Header -->
+            <div style="background:linear-gradient(135deg,#1d4ed8,#2563eb); color:white; padding:10px 14px; font-size:0.75rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; display:flex; align-items:center; gap:8px;">
+                <i class="fas fa-layer-group"></i> Map Layers
+            </div>
+
+            <!-- Traffic Section -->
+            <div style="padding:8px 0; border-bottom:1px solid #f3f4f6;">
+                <div style="padding:4px 14px 6px; font-size:0.62rem; font-weight:700; color:#9ca3af; text-transform:uppercase; letter-spacing:0.08em;">Traffic</div>
+                <label class="layer-menu-item" onclick="toggleTrafficLayer()">
+                    <div class="layer-menu-icon" style="background:linear-gradient(135deg,#34a853,#fbbc04,#ea4335);">
+                        <i class="fas fa-car" style="color:white;font-size:0.7rem;"></i>
+                    </div>
+                    <span class="layer-menu-label">Traffic Flow &amp; Incidents</span>
+                    <div class="layer-toggle-switch" id="trafficToggleSwitch">
+                        <div class="layer-toggle-knob"></div>
+                    </div>
+                </label>
+            </div>
+
+            <!-- Overlays Section -->
+            <div style="padding:8px 0;">
+                <div style="padding:4px 14px 6px; font-size:0.62rem; font-weight:700; color:#9ca3af; text-transform:uppercase; letter-spacing:0.08em;">Overlays</div>
+
+                <label class="layer-menu-item" id="lyr-clusters" onclick="toggleOverlayLayer('clusters')">
+                    <div class="layer-menu-icon" style="background:#2563eb;">
+                        <i class="fas fa-map-marker-alt" style="color:white;font-size:0.7rem;"></i>
+                    </div>
+                    <span class="layer-menu-label">Site Clusters</span>
+                    <div class="layer-toggle-switch active" id="toggle-clusters"><div class="layer-toggle-knob"></div></div>
+                </label>
+
+                <label class="layer-menu-item" id="lyr-congestion" onclick="toggleOverlayLayer('congestion')">
+                    <div class="layer-menu-icon" style="background:#dc2626;">
+                        <i class="fas fa-exclamation-triangle" style="color:white;font-size:0.65rem;"></i>
+                    </div>
+                    <span class="layer-menu-label">Congestion Counts</span>
+                    <div class="layer-toggle-switch" id="toggle-congestion"><div class="layer-toggle-knob"></div></div>
+                </label>
+
+                <label class="layer-menu-item" id="lyr-heatmap" onclick="toggleOverlayLayer('heatmap')">
+                    <div class="layer-menu-icon" style="background:linear-gradient(135deg,#f97316,#ef4444);">
+                        <i class="fas fa-fire" style="color:white;font-size:0.7rem;"></i>
+                    </div>
+                    <span class="layer-menu-label">Heatmap</span>
+                    <div class="layer-toggle-switch" id="toggle-heatmap"><div class="layer-toggle-knob"></div></div>
+                </label>
+
+                <label class="layer-menu-item" id="lyr-5g" onclick="toggleOverlayLayer('5g')">
+                    <div class="layer-menu-icon" style="background:#eab308;">
+                        <span style="color:white;font-size:0.6rem;font-weight:800;">5G</span>
+                    </div>
+                    <span class="layer-menu-label">5G Coverage</span>
+                    <div class="layer-toggle-switch" id="toggle-5g"><div class="layer-toggle-knob"></div></div>
+                </label>
+
+                <label class="layer-menu-item" id="lyr-4g" onclick="toggleOverlayLayer('4g')">
+                    <div class="layer-menu-icon" style="background:#3b82f6;">
+                        <span style="color:white;font-size:0.6rem;font-weight:800;">4G</span>
+                    </div>
+                    <span class="layer-menu-label">4G Coverage</span>
+                    <div class="layer-toggle-switch" id="toggle-4g"><div class="layer-toggle-knob"></div></div>
+                </label>
+
+                <label class="layer-menu-item" id="lyr-3g" onclick="toggleOverlayLayer('3g')">
+                    <div class="layer-menu-icon" style="background:#f97316;">
+                        <span style="color:white;font-size:0.6rem;font-weight:800;">3G</span>
+                    </div>
+                    <span class="layer-menu-label">3G Coverage</span>
+                    <div class="layer-toggle-switch" id="toggle-3g"><div class="layer-toggle-knob"></div></div>
+                </label>
+
+                <label class="layer-menu-item" id="lyr-2g" onclick="toggleOverlayLayer('2g')">
+                    <div class="layer-menu-icon" style="background:#6b7280;">
+                        <span style="color:white;font-size:0.6rem;font-weight:800;">2G</span>
+                    </div>
+                    <span class="layer-menu-label">2G Coverage</span>
+                    <div class="layer-toggle-switch" id="toggle-2g"><div class="layer-toggle-knob"></div></div>
+                </label>
+
+                <label class="layer-menu-item" id="lyr-mr" onclick="toggleOverlayLayer('mr')">
+                    <div class="layer-menu-icon" style="background:#1e40af;">
+                        <i class="fas fa-square" style="color:white;font-size:0.65rem;"></i>
+                    </div>
+                    <span class="layer-menu-label">MR Coverage Holes</span>
+                    <div class="layer-toggle-switch active" id="toggle-mr"><div class="layer-toggle-knob"></div></div>
+                </label>
+
+                <label class="layer-menu-item" id="lyr-ookla" onclick="toggleOverlayLayer('ookla')">
+                    <div class="layer-menu-icon" style="background:#7e22ce;">
+                        <i class="fas fa-caret-up" style="color:white;font-size:0.8rem;"></i>
+                    </div>
+                    <span class="layer-menu-label">Ookla Coverage Holes</span>
+                    <div class="layer-toggle-switch active" id="toggle-ookla"><div class="layer-toggle-knob"></div></div>
+                </label>
+
+                <label class="layer-menu-item" id="lyr-noise" onclick="toggleOverlayLayer('noise')">
+                    <div class="layer-menu-icon" style="background:#111827;">
+                        <i class="fas fa-signal" style="color:white;font-size:0.65rem;"></i>
+                    </div>
+                    <span class="layer-menu-label">Signal Noise (-1)</span>
+                    <div class="layer-toggle-switch" id="toggle-noise"><div class="layer-toggle-knob"></div></div>
+                </label>
+            </div>
+        </div>
+    </div>
 
     <button id="sidebarToggle" onclick="toggleSidebar()" title="Toggle Sidebar">
         <i class="fas fa-chevron-left"></i>
@@ -2189,6 +2407,114 @@
         L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: 'Tiles &copy; Esri', maxZoom: 19 }).addTo(map);
         L.tileLayer('https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png', { attribution: '&copy;OpenStreetMap, &copy;CartoDB', subdomains: 'abcd', maxZoom: 19 }).addTo(map);
 
+        // --- Traffic Layer (TomTom) ---
+        var trafficLayer = L.tileLayer(
+            'https://{s}.api.tomtom.com/traffic/map/4/tile/flow/relative/{z}/{x}/{y}.png?key=DEMO_KEY&tileSize=256',
+            {
+                attribution: '&copy; <a href="https://www.tomtom.com" target="_blank">TomTom</a> Traffic',
+                subdomains: ['a','b','c','d'],
+                maxZoom: 19,
+                opacity: 0.7,
+                zIndex: 5
+            }
+        );
+        var trafficIncidentLayer = L.tileLayer(
+            'https://{s}.api.tomtom.com/traffic/map/4/tile/incidents/s3/{z}/{x}/{y}.png?key=DEMO_KEY&tileSize=256',
+            {
+                attribution: '&copy; <a href="https://www.tomtom.com" target="_blank">TomTom</a> Incidents',
+                subdomains: ['a','b','c','d'],
+                maxZoom: 19,
+                opacity: 0.85,
+                zIndex: 6
+            }
+        );
+        var trafficEnabled = false;
+        var layerMenuOpen = false;
+
+        // Layer state tracking (mirrors what's actually on the map)
+        var layerStates = {
+            clusters:   true,   // added to map by default via map.addLayer(markers)
+            congestion: false,
+            heatmap:    false,
+            '5g':       false,
+            '4g':       false,
+            '3g':       false,
+            '2g':       false,
+            mr:         true,   // added via .addTo(map)
+            ookla:      true,   // added via .addTo(map)
+            noise:      false
+        };
+
+        var layerMap = {}; // populated after layers are declared
+
+        function initLayerMap() {
+            layerMap = {
+                clusters:   markers,
+                congestion: congestedMarkers,
+                heatmap:    heatmapLayer,
+                '5g':       layer5G,
+                '4g':       layer4G,
+                '3g':       layer3G,
+                '2g':       layer2G,
+                mr:         layerMRHoles,
+                ookla:      layerOoklaHoles,
+                noise:      layerNoise
+            };
+        }
+
+        function toggleLayerMenu() {
+            layerMenuOpen = !layerMenuOpen;
+            const menu = document.getElementById('layerMenu');
+            const chevron = document.getElementById('layerMenuChevron');
+            if (layerMenuOpen) {
+                menu.style.display = 'block';
+                chevron.style.transform = 'rotate(180deg)';
+            } else {
+                menu.style.display = 'none';
+                chevron.style.transform = 'rotate(0deg)';
+            }
+        }
+
+        // Close menu when clicking outside
+        document.addEventListener('click', function(e) {
+            const ctrl = document.getElementById('mapLayerControl');
+            if (ctrl && !ctrl.contains(e.target) && layerMenuOpen) {
+                layerMenuOpen = false;
+                document.getElementById('layerMenu').style.display = 'none';
+                document.getElementById('layerMenuChevron').style.transform = 'rotate(0deg)';
+            }
+        });
+
+        function toggleTrafficLayer() {
+            trafficEnabled = !trafficEnabled;
+            const sw = document.getElementById('trafficToggleSwitch');
+            if (trafficEnabled) {
+                trafficLayer.addTo(map);
+                trafficIncidentLayer.addTo(map);
+                sw.classList.add('active');
+            } else {
+                map.removeLayer(trafficLayer);
+                map.removeLayer(trafficIncidentLayer);
+                sw.classList.remove('active');
+            }
+        }
+
+        function toggleOverlayLayer(key) {
+            if (!layerMap[key]) initLayerMap();
+            const layer = layerMap[key];
+            const sw = document.getElementById('toggle-' + key);
+            if (!layer || !sw) return;
+
+            layerStates[key] = !layerStates[key];
+            if (layerStates[key]) {
+                layer.addTo(map);
+                sw.classList.add('active');
+            } else {
+                map.removeLayer(layer);
+                sw.classList.remove('active');
+            }
+        }
+
         var siteDataCache = [];
         var activeCoverageLayers = [];
         var siteMarkerMap = {};
@@ -2217,7 +2543,8 @@
             "<span class='font-bold text-purple-700'><i class='fas fa-caret-up mr-1'></i>Ookla Coverage Holes (Triangle)</span>": layerOoklaHoles,
             "<span class='font-bold text-black'>Signal Noise (-1)</span>": layerNoise
         };
-        L.control.layers(null, overlayMaps, { position: 'topright', collapsed: false }).addTo(map);
+        // Native layer control replaced by custom Google Maps-style menu
+        initLayerMap();
 
         var currentModalSiteId = null;
 
@@ -3853,6 +4180,7 @@
             const sidebar = document.getElementById('sidebar');
             const toggleBtn = document.getElementById('sidebarToggle');
             const mapEl = document.getElementById('map');
+            const layerCtrl = document.getElementById('mapLayerControl');
 
             sidebar.classList.toggle('collapsed');
             toggleBtn.classList.toggle('collapsed');
@@ -3861,8 +4189,10 @@
             const icon = toggleBtn.querySelector('i');
             if (sidebar.classList.contains('collapsed')) {
                 icon.classList.replace('fa-chevron-left', 'fa-chevron-right');
+                if (layerCtrl) layerCtrl.style.left = '16px';
             } else {
                 icon.classList.replace('fa-chevron-right', 'fa-chevron-left');
+                if (layerCtrl) layerCtrl.style.left = '366px';
             }
 
             // Force Leaflet to recalculate map size after transition
