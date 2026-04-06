@@ -71,7 +71,7 @@
         table.dataTable tbody tr.selected { background-color: #dbeafe !important; }
         table.dataTable tbody tr.selected td { font-weight: bold; color: #1e3a8a; border-top: 1px solid #93c5fd; border-bottom: 1px solid #93c5fd; }
 
-        #mapView, #mapContainer { position: absolute; top: 72px; bottom: 0; left: 0; right: 0; overflow: hidden; background: #f3f4f6;}
+        #mapView, #mapContainer { position: absolute; top: 72px; bottom: 0; left: 0; right: 0; overflow: hidden; background: #f3f4f6; z-index: 1;}
         #sidebar { position: absolute; top: 0; left: 0; bottom: 0; width: 350px; background-color: #ffffff; color: #1f2937; z-index: 1000; padding: 20px; box-shadow: 2px 015px rgba(0,0,0,0.1); display: flex; flex-direction: column; gap: 15px; border-right: 1px solid #e5e7eb; overflow-y: auto; }
         #map { position: absolute; top: 0; right: 0; bottom: 0; left: 350px; z-index: 1; }
         .control-group { background: #f9fafb; padding: 12px; border-radius: 8px; border: 1px solid #e5e7eb; }
@@ -300,29 +300,29 @@
         };
     </script>
 
-    <nav class="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-4 shadow-lg sticky top-0 z-50 h-[72px]">
-    <div class="container mx-auto flex justify-between items-center">
+    <nav class="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-4 shadow-lg sticky top-0 z-50 h-auto min-h-[72px]" style="overflow:visible;">
+    <div class="container mx-auto flex justify-between items-center relative">
         <div>
             <h1 class="text-2xl font-bold flex items-center gap-3">
                 <i class="fas fa-network-wired"></i> NetAlytics
             </h1>
         </div>
 
-        <div class="flex gap-6 absolute left-1/2 transform -translate-x-1/2">
-            <button id="tabBtnDashboard" onclick="switchMainTab('dashboard')" class="text-white opacity-70 hover:opacity-100 font-bold border-b-2 border-transparent hover:border-whitepb-1 transition-all">
-                <i class="fas fa-chart-line mr-1"></i> RAN Forecast
+        <div class="flex gap-3 md:gap-6 absolute left-1/2 transform -translate-x-1/2 items-center flex-nowrap">
+            <button id="tabBtnMap" onclick="switchMainTab('map')" class="text-white font-bold border-b-2 border-white pb-1 transition-all whitespace-nowrap text-sm md:text-base">
+                <i class="fas fa-map-marked-alt mr-1"></i><span class="hidden sm:inline">Coverage Map</span><span class="sm:hidden">Map</span>
             </button>
-            <button id="tabBtnMap" onclick="switchMainTab('map')" class="text-white font-bold border-b-2 border-white pb-1 transition-all">
-                <i class="fas fa-map-marked-alt mr-1"></i> Coverage Map
+            <button id="tabBtnDashboard" onclick="switchMainTab('dashboard')" class="text-white opacity-70 hover:opacity-100 font-bold border-b-2 border-transparent hover:border-white pb-1 transition-all whitespace-nowrap text-sm md:text-base">
+                <i class="fas fa-chart-line mr-1"></i><span class="hidden sm:inline">RAN Forecast</span><span class="sm:hidden">RAN</span>
             </button>
-            <button id="tabBtn3D" onclick="switchMainTab('3d')" class="text-white opacity-70 hover:opacity-100 font-bold border-b-2 border-transparent hover:border-white pb-1 transition-all">
-                <i class="fas fa-cube mr-1"></i> 3D Map
+            <button id="tabBtn3D" onclick="switchMainTab('3d')" class="text-white opacity-70 hover:opacity-100 font-bold border-b-2 border-transparent hover:border-white pb-1 transition-all whitespace-nowrap text-sm md:text-base">
+                <i class="fas fa-cube mr-1"></i> 3D
             </button>
 
             <!-- Tools dropdown -->
             <div class="relative" id="toolsDropdownWrapper">
-                <button id="tabBtnTools" onclick="toggleToolsDropdown()" class="text-white opacity-70 hover:opacity-100 font-bold border-b-2 border-transparent hover:border-white pb-1 transition-all flex items-center gap-1">
-                    <i class="fas fa-toolbox mr-1"></i> Enterprise Use Cases <i class="fas fa-chevron-down text-[10px] ml-1"></i>
+                <button id="tabBtnTools" onclick="toggleToolsDropdown()" class="text-white opacity-70 hover:opacity-100 font-bold border-b-2 border-transparent hover:border-white pb-1 transition-all flex items-center gap-1 whitespace-nowrap text-sm md:text-base">
+                    <i class="fas fa-toolbox mr-1"></i><span class="hidden md:inline">Enterprise Use Cases</span><span class="md:hidden">Tools</span> <i class="fas fa-chevron-down text-[10px] ml-1"></i>
                 </button>
                 <div id="toolsDropdown" class="hidden absolute left-1/2 -translate-x-1/2 mt-3 w-64 bg-white rounded-xl shadow-2xl overflow-hidden text-gray-700 border border-gray-100 z-[9999]">
                     <button onclick="switchMainTab('cctv')" class="w-full text-left px-4 py-3 hover:bg-blue-50 flex items-center gap-3 border-b border-gray-100 transition-colors">
@@ -337,7 +337,7 @@
             </div>
         </div>
 
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-2 md:gap-3 flex-shrink-0">
             {% if role == 'Admin' %}
             <a href="/iam" class="bg-white/20 hover:bg-white/30 text-white p-2.5 rounded-lg transition-all duration-300 shadow-lg hover:scale-110" title="User Management (IAM)">
                 <i class="fas fa-shield-alt text-lg"></i>
@@ -353,12 +353,12 @@
                 <i class="fas fa-star text-lg"></i>
             </button>
 
-            <div class="relative ml-2">
-                <button id="menuBtn" class="bg-white text-blue-600 px-4 py-2 rounded-lg font-bold hover:bg-gray-100 transition flex items-center gap-2 shadow-lg">
-                    <i class="fas fa-user-circle"></i> {{ username }} <i class="fas fa-chevron-down text-xs ml-1"></i>
+            <div class="relative ml-1 md:ml-2">
+                <button id="menuBtn" class="bg-white text-blue-600 px-3 md:px-4 py-2 rounded-lg font-bold hover:bg-gray-100 transition flex items-center gap-1 md:gap-2 shadow-lg text-sm md:text-base">
+                    <i class="fas fa-user-circle"></i> <span class="hidden md:inline">{{ username }}</span> <i class="fas fa-chevron-down text-xs ml-1"></i>
                 </button>
-                <div id="menuDropdown" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl overflow-hidden text-gray-700 border border-gray-100">
-                    <button onclick="openSettingsModal()" class="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-center gap-2 border-b border-gray-50"><i class="fasfa-cog text-gray-400"></i> Settings</button>
+                <div id="menuDropdown" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl overflow-hidden text-gray-700 border border-gray-100 z-[9999]">
+                    <button onclick="openSettingsModal()" class="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-center gap-2 border-b border-gray-50"><i class="fas fa-cog text-gray-400"></i> Settings</button>
                     <a href="/logout" class="block px-4 py-3 hover:bg-red-50 text-red-600 flex items-center gap-2"><i class="fas fa-sign-out-alt"></i> Logout</a>
                 </div>
             </div>
@@ -803,7 +803,7 @@
     </div><!-- /#mapContainer -->
 
     <!-- 3D Map Container (CesiumJS) -->
-    <div id="map3dContainer" style="display:none; position:absolute; top:72px; bottom:0; left:0; right:0; overflow:hidden;">
+    <div id="map3dContainer" style="display:none; position:absolute; top:72px; bottom:0; left:0; right:0; overflow:hidden; z-index:1;">
         <div id="cesiumContainer" style="width:100%; height:100%;"></div>
 
         <!-- Loading / Status overlay -->
@@ -832,7 +832,7 @@
     </div>
 
     <!-- CCTV Planning Tool -->
-    <div id="cctvContainer" style="display:none; position:absolute; top:72px; bottom:0; left:0; right:0; overflow:hidden;">
+    <div id="cctvContainer" style="display:none; position:absolute; top:72px; bottom:0; left:0; right:0; overflow:hidden; z-index:1;">
         <!-- CCTV Status bar -->
         <div id="cctvStatus" style="position:absolute; bottom:24px; left:50%; transform:translateX(-50%); z-index:200; background:rgba(15,23,42,0.9); color:white; padding:10px 24px; border-radius:10px; font-size:0.85rem; font-weight:600; display:flex; align-items:center; gap:10px; box-shadow:0 4px 20px rgba(0,0,0,0.3); pointer-events:none; transition: opacity 0.5s;">
             <i class="fas fa-circle-notch fa-spin" id="cctvStatusSpinner"></i>
@@ -840,7 +840,7 @@
         </div>
 
         <!-- CCTV Sidebar -->
-        <div id="cctvSidebar" style="position:absolute; top:0; left:0; bottom:0; width:360px; background:#fff; z-index:150; border-right:1px solid #e5e7eb; box-shadow:2px 0 15px rgba(0,0,0,0.08); display:flex; flex-direction:column; overflow-y:auto;">
+        <div id="cctvSidebar" style="position:absolute; top:0; left:0; bottom:0; width:360px; background:#fff; z-index:150; border-right:1px solid #e5e7eb; box-shadow:2px 0 15px rgba(0,0,0,0.08); display:flex; flex-direction:column; overflow-y:auto; transition:transform 0.3s cubic-bezier(0.4,0,0.2,1);">
             <!-- Header -->
             <div style="background:linear-gradient(135deg,#1e3a8a,#2563eb); color:white; padding:16px; flex-shrink:0;">
                 <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
@@ -998,14 +998,19 @@
             </div>
         </div>
 
+        <!-- CCTV Sidebar Toggle -->
+        <button id="cctvSidebarToggle" onclick="toggleCctvSidebar()" style="position:absolute; left:360px; top:50%; transform:translateY(-50%); width:24px; height:48px; background:#2563eb; border:none; border-radius:0 8px 8px 0; color:white; cursor:pointer; display:flex; align-items:center; justify-content:center; z-index:160; box-shadow:2px 0 10px rgba(0,0,0,0.1); transition:left 0.3s cubic-bezier(0.4,0,0.2,1);">
+            <i class="fas fa-chevron-left" id="cctvToggleIcon"></i>
+        </button>
+
         <!-- CCTV Map -->
-        <div id="cctvMap" style="position:absolute; top:0; left:360px; right:0; bottom:0;"></div>
+        <div id="cctvMap" style="position:absolute; top:0; left:360px; right:0; bottom:0; transition:left 0.3s cubic-bezier(0.4,0,0.2,1);"></div>
     </div>
 
     <!-- Illegal Bitcoin Mining Analyser -->
-    <div id="bitcoinContainer" style="display:none; position:absolute; top:72px; bottom:0; left:0; right:0; overflow:hidden; background:#f3f4f6;">
+    <div id="bitcoinContainer" style="display:none; position:absolute; top:72px; bottom:0; left:0; right:0; overflow:hidden; background:#f3f4f6; z-index:1;">
         <!-- Sidebar (matches index.html style) -->
-        <div id="mhSidebar" style="position:absolute; top:0; left:0; bottom:0; width:350px; background:#ffffff; z-index:150; border-right:1px solid #e5e7eb; box-shadow:2px 0 15px rgba(0,0,0,0.08); display:flex; flex-direction:column; overflow-y:auto; font-family:'Inter',sans-serif;">
+        <div id="mhSidebar" style="position:absolute; top:0; left:0; bottom:0; width:350px; background:#ffffff; z-index:150; border-right:1px solid #e5e7eb; box-shadow:2px 0 15px rgba(0,0,0,0.08); display:flex; flex-direction:column; overflow-y:auto; font-family:'Inter',sans-serif; transition:transform 0.3s cubic-bezier(0.4,0,0.2,1);">
             <!-- Header -->
             <div style="background:linear-gradient(135deg,#92400e,#d97706); color:white; padding:16px; flex-shrink:0;">
                 <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;">
@@ -1049,11 +1054,11 @@
                 </div>
                 <!-- Steps -->
                 <div style="display:flex; align-items:center; justify-content:center; gap:8px;">
-                    <div id="mhStep1" style="width:28px;height:28px;border-radius:50%;border:2px solid #2563eb;display:flex;align-items:center;justify-content:center;font-size:0.7rem;font-weight:800;color:#2563eb;">1</div>
+                    <div id="mhStep1" style="width:28px;height:28px;border-radius:50%;border:2px solid #2563eb;display:flex;align-items:center;justify-content:center;font-size:0.7rem;font-weight:800;color:#2563eb;line-height:1;text-align:center;">1</div>
                     <div style="width:20px;height:2px;background:#e5e7eb;"></div>
-                    <div id="mhStep2" style="width:28px;height:28px;border-radius:50%;border:2px solid #e5e7eb;display:flex;align-items:center;justify-content:center;font-size:0.7rem;font-weight:800;color:#9ca3af;">2</div>
+                    <div id="mhStep2" style="width:28px;height:28px;border-radius:50%;border:2px solid #e5e7eb;display:flex;align-items:center;justify-content:center;font-size:0.7rem;font-weight:800;color:#9ca3af;line-height:1;text-align:center;">2</div>
                     <div id="mhSep23" style="width:20px;height:2px;background:#e5e7eb;"></div>
-                    <div id="mhStep3" style="width:28px;height:28px;border-radius:50%;border:2px solid #e5e7eb;display:flex;align-items:center;justify-content:center;font-size:0.7rem;font-weight:800;color:#9ca3af;">3</div>
+                    <div id="mhStep3" style="width:28px;height:28px;border-radius:50%;border:2px solid #e5e7eb;display:flex;align-items:center;justify-content:center;font-size:0.7rem;font-weight:800;color:#9ca3af;line-height:1;text-align:center;">3</div>
                 </div>
                 <!-- Actions -->
                 <button id="mhRunBtn" disabled onclick="mhRun()" style="width:100%;padding:10px;border-radius:6px;border:none;font-size:0.82rem;font-weight:700;cursor:pointer;background:#d1d5db;color:#6b7280;">
@@ -1084,10 +1089,14 @@
                 </div>
             </div>
         </div>
+        <!-- Mining Sidebar Toggle -->
+        <button id="mhSidebarToggle" onclick="toggleMhSidebar()" style="position:absolute; left:350px; top:50%; transform:translateY(-50%); width:24px; height:48px; background:#d97706; border:none; border-radius:0 8px 8px 0; color:white; cursor:pointer; display:flex; align-items:center; justify-content:center; z-index:160; box-shadow:2px 0 10px rgba(0,0,0,0.1); transition:left 0.3s cubic-bezier(0.4,0,0.2,1);">
+            <i class="fas fa-chevron-left" id="mhToggleIcon"></i>
+        </button>
         <!-- Map hint -->
-        <div id="mhMapHint" style="position:absolute; bottom:20px; left:calc(350px + 50%); transform:translateX(-50%); background:rgba(15,23,42,0.88); color:white; border-radius:8px; padding:8px 16px; font-size:0.78rem; font-weight:600; z-index:200; pointer-events:none;">Click a cell site to select Site 1</div>
+        <div id="mhMapHint" style="position:absolute; bottom:20px; left:calc(350px + 50%); transform:translateX(-50%); background:rgba(15,23,42,0.88); color:white; border-radius:8px; padding:8px 16px; font-size:0.78rem; font-weight:600; z-index:200; pointer-events:none; transition:left 0.3s cubic-bezier(0.4,0,0.2,1);">Click a cell site to select Site 1</div>
         <!-- Map -->
-        <div id="mhMap" style="position:absolute; top:0; left:350px; right:0; bottom:0;"></div>
+        <div id="mhMap" style="position:absolute; top:0; left:350px; right:0; bottom:0; transition:left 0.3s cubic-bezier(0.4,0,0.2,1);"></div>
     </div>
 
 <div id="plotModalOverlay" class="plot-modal-overlay">
@@ -4298,6 +4307,33 @@
         // ==========================================
         // ILLEGAL BITCOIN MINING ANALYSER
         // ==========================================
+        // SIDEBAR COLLAPSE FUNCTIONS
+        // ==========================================
+        function toggleCctvSidebar(){
+            const sb=document.getElementById('cctvSidebar');
+            const mp=document.getElementById('cctvMap');
+            const tb=document.getElementById('cctvSidebarToggle');
+            const ic=document.getElementById('cctvToggleIcon');
+            const collapsed=sb.style.transform==='translateX(-100%)';
+            if(collapsed){sb.style.transform='translateX(0)';mp.style.left='360px';tb.style.left='360px';ic.className='fas fa-chevron-left';}
+            else{sb.style.transform='translateX(-100%)';mp.style.left='0';tb.style.left='0';ic.className='fas fa-chevron-right';}
+            setTimeout(()=>{if(cctvMap)cctvMap.invalidateSize();},350);
+        }
+        function toggleMhSidebar(){
+            const sb=document.getElementById('mhSidebar');
+            const mp=document.getElementById('mhMap');
+            const tb=document.getElementById('mhSidebarToggle');
+            const ic=document.getElementById('mhToggleIcon');
+            const ht=document.getElementById('mhMapHint');
+            const collapsed=sb.style.transform==='translateX(-100%)';
+            if(collapsed){sb.style.transform='translateX(0)';mp.style.left='350px';tb.style.left='350px';ic.className='fas fa-chevron-left';if(ht)ht.style.left='calc(350px + 50%)';}
+            else{sb.style.transform='translateX(-100%)';mp.style.left='0';tb.style.left='0';ic.className='fas fa-chevron-right';if(ht)ht.style.left='50%';}
+            setTimeout(()=>{if(mhMap)mhMap.invalidateSize();},350);
+        }
+
+        // ==========================================
+        // ILLEGAL BITCOIN MINING HUNTER
+        // ==========================================
         let mhMap = null;
         let mhInitialized = false;
         let mhSitesData = [];
@@ -4335,6 +4371,7 @@
         function mhResetAll(){mhSelected=[null,null,null];mhClearAnalysis();mhUpdateUI();}
         function mhHaversine(lat1,lon1,lat2,lon2){const R=6371,dLat=(lat2-lat1)*Math.PI/180,dLon=(lon2-lon1)*Math.PI/180;const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;return R*2*Math.asin(Math.sqrt(a));}
         function mhCircle(lat,lon,rKm,n=64){const R=6371,pts=[];for(let i=0;i<=n;i++){const a=2*Math.PI*i/n;pts.push([lat+(rKm/R)*180/Math.PI*Math.cos(a),lon+(rKm/R)*180/Math.PI*Math.sin(a)/Math.cos(lat*Math.PI/180)]);}return pts;}
+        function mhAddBuffer(lat,lon,rKm){const rM=rKm*1000;const c=L.circle([lat,lon],{radius:rM,color:'#16a34a',weight:1.5,fillColor:'#16a34a',fillOpacity:.06,dashArray:'4,4'}).addTo(mhMap);mhAnalysisLayers.push(c);return c;}
 
         async function mhFetchOverpass(cLat,cLon,radiusKm){
             const st=document.getElementById('mhOverpassStatus'),tx=document.getElementById('mhOverpassText');
@@ -4364,8 +4401,8 @@
                 const td=mhHaversine(s1.lat,s1.lon,s2.lat,s2.lon);
                 mhAnalysisLayers.push(L.polyline([[s1.lat,s1.lon],[s2.lat,s2.lon]],{color:'#eab308',weight:2,dashArray:'6,4'}).addTo(mhMap));
                 mhAnalysisLayers.push(L.marker([cLat,cLon],{icon:L.divIcon({className:'',html:'<div style="width:13px;height:13px;background:#16a34a;border:2px solid white;border-radius:2px;transform:rotate(45deg);box-shadow:0 0 10px #16a34a;"></div>',iconSize:[13,13],iconAnchor:[6.5,6.5]})}).addTo(mhMap));
-                mhAnalysisLayers.push(L.polygon(mhCircle(cLat,cLon,maxDist),{color:'#16a34a',weight:1.5,fillColor:'#16a34a',fillOpacity:.06,dashArray:'4,4'}).addTo(mhMap));
-                mhMap.fitBounds(L.latLngBounds(mhCircle(cLat,cLon,maxDist)),{padding:[40,40]});
+                var bufCircle2=mhAddBuffer(cLat,cLon,maxDist);
+                mhMap.fitBounds(bufCircle2.getBounds(),{padding:[40,40]});
                 html='<div style="font-size:0.65rem;padding:3px 8px;background:#eff6ff;color:#2563eb;border-radius:4px;display:inline-block;font-weight:700;margin-bottom:8px;">2-POINT</div>';
                 html+='<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #f1f5f9;font-size:0.78rem;"><span style="color:#6b7280;">S1 ↔ S2</span><span style="color:#16a34a;font-weight:700;">'+td.toFixed(3)+' km</span></div>';
                 html+='<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #f1f5f9;font-size:0.78rem;"><span style="color:#6b7280;">Buffer</span><span style="color:#16a34a;font-weight:700;">'+maxDist.toFixed(3)+' km</span></div>';
@@ -4375,9 +4412,9 @@
                 cLat=pts.reduce((s,p)=>s+p[0],0)/3;cLon=pts.reduce((s,p)=>s+p[1],0)/3;maxDist=Math.max(...pts.map(p=>mhHaversine(p[0],p[1],cLat,cLon)));
                 mhAnalysisLayers.push(L.polygon(pts,{color:'#eab308',weight:2,fillColor:'#eab308',fillOpacity:.04,dashArray:'6,4'}).addTo(mhMap));
                 mhAnalysisLayers.push(L.marker([cLat,cLon],{icon:L.divIcon({className:'',html:'<div style="width:13px;height:13px;background:#16a34a;border:2px solid white;border-radius:2px;transform:rotate(45deg);box-shadow:0 0 10px #16a34a;"></div>',iconSize:[13,13],iconAnchor:[6.5,6.5]})}).addTo(mhMap));
-                mhAnalysisLayers.push(L.polygon(mhCircle(cLat,cLon,maxDist),{color:'#16a34a',weight:1.5,fillColor:'#16a34a',fillOpacity:.06,dashArray:'4,4'}).addTo(mhMap));
+                var bufCircle3=mhAddBuffer(cLat,cLon,maxDist);
                 mhColors.forEach((col,i)=>{mhAnalysisLayers.push(L.polyline([pts[i],[cLat,cLon]],{color:col,weight:1,opacity:.4,dashArray:'3,5'}).addTo(mhMap));});
-                mhMap.fitBounds(L.latLngBounds(mhCircle(cLat,cLon,maxDist)),{padding:[40,40]});
+                mhMap.fitBounds(bufCircle3.getBounds(),{padding:[40,40]});
                 const d12=mhHaversine(s1.lat,s1.lon,s2.lat,s2.lon),d23=mhHaversine(s2.lat,s2.lon,s3.lat,s3.lon),d13=mhHaversine(s1.lat,s1.lon,s3.lat,s3.lon);
                 html='<div style="font-size:0.65rem;padding:3px 8px;background:#f5f3ff;color:#7c3aed;border-radius:4px;display:inline-block;font-weight:700;margin-bottom:8px;">3-POINT</div>';
                 html+='<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #f1f5f9;font-size:0.78rem;"><span style="color:#6b7280;">Buffer</span><span style="color:#16a34a;font-weight:700;">'+maxDist.toFixed(3)+' km</span></div>';
