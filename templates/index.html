@@ -284,51 +284,6 @@
         #annotationBtn.active { background: #dc2626; }
         #notesBtn.active { background: #dc2626; }
         #showAnnotationsBtn.annotations-hidden { background: #6b7280; }
-
-      /* Dynamic Navbar - Prevents overlap in split-screen */
-        .dynamic-nav {
-            flex-wrap: nowrap;
-            overflow-x: auto;
-            scrollbar-width: thin;
-            -webkit-overflow-scrolling: touch;
-        }
-        
-        .dynamic-nav .nav-tab {
-            white-space: nowrap;
-            flex-shrink: 0;
-        }
-        
-        /* Ensure dropdown renders above map content */
-        #toolsDropdown,
-        #menuDropdown {
-            position: fixed;
-            z-index: 9999;
-            background: white;
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15);
-        }
-        
-        /* For responsive split-screen */
-        @media (max-width: 900px) {
-            .dynamic-nav {
-                max-width: 50vw;
-            }
-            .nav-brand {
-                font-size: 0.9rem;
-            }
-        }
-        
-        /* Hide scrollbar on nav when not needed but allow scroll */
-        .dynamic-nav::-webkit-scrollbar {
-            height: 3px;
-        }
-        .dynamic-nav::-webkit-scrollbar-track {
-            background: #e2e8f0;
-            border-radius: 10px;
-        }
-        .dynamic-nav::-webkit-scrollbar-thumb {
-            background: #94a3b8;
-            border-radius: 10px;
-        }
     </style>
 </head>
 <body class="bg-gray-50">
@@ -345,69 +300,65 @@
         };
     </script>
 
-    <nav class="bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg sticky top-0 z-50" style="min-height: 72px;">
-    <div class="container mx-auto px-3 md:px-4 py-2 flex flex-wrap items-center justify-between gap-2">
-        <!-- Logo / Brand -->
-        <div class="flex items-center gap-2 nav-brand">
-            <i class="fas fa-network-wired text-xl"></i>
-            <h1 class="text-lg md:text-2xl font-bold whitespace-nowrap">NetAlytics</h1>
+    <nav class="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-4 shadow-lg sticky top-0 z-50 h-[72px]">
+    <div class="container mx-auto flex justify-between items-center">
+        <div>
+            <h1 class="text-2xl font-bold flex items-center gap-3">
+                <i class="fas fa-network-wired"></i> NetAlytics
+            </h1>
         </div>
 
-        <!-- Scrollable Tabs Container (prevents overlap) -->
-        <div class="flex-1 flex justify-center min-w-0 px-2">
-            <div class="dynamic-nav flex items-center gap-1 md:gap-3 overflow-x-auto py-1 max-w-full">
-                <button id="tabBtnDashboard" onclick="switchMainTab('dashboard')" class="nav-tab text-white opacity-70 hover:opacity-100 font-bold border-b-2 border-transparent hover:border-white pb-1 transition-all px-2 py-1 text-sm md:text-base whitespace-nowrap">
-                    <i class="fas fa-chart-line mr-1"></i> RAN Forecast
-                </button>
-                <button id="tabBtnMap" onclick="switchMainTab('map')" class="nav-tab text-white font-bold border-b-2 border-white pb-1 transition-all px-2 py-1 text-sm md:text-base whitespace-nowrap">
-                    <i class="fas fa-map-marked-alt mr-1"></i> Coverage Map
-                </button>
-                <button id="tabBtn3D" onclick="switchMainTab('3d')" class="nav-tab text-white opacity-70 hover:opacity-100 font-bold border-b-2 border-transparent hover:border-white pb-1 transition-all px-2 py-1 text-sm md:text-base whitespace-nowrap">
-                    <i class="fas fa-cube mr-1"></i> 3D Map
-                </button>
+        <div class="flex gap-6 absolute left-1/2 transform -translate-x-1/2">
+            <button id="tabBtnDashboard" onclick="switchMainTab('dashboard')" class="text-white opacity-70 hover:opacity-100 font-bold border-b-2 border-transparent hover:border-whitepb-1 transition-all">
+                <i class="fas fa-chart-line mr-1"></i> RAN Forecast
+            </button>
+            <button id="tabBtnMap" onclick="switchMainTab('map')" class="text-white font-bold border-b-2 border-white pb-1 transition-all">
+                <i class="fas fa-map-marked-alt mr-1"></i> Coverage Map
+            </button>
+            <button id="tabBtn3D" onclick="switchMainTab('3d')" class="text-white opacity-70 hover:opacity-100 font-bold border-b-2 border-transparent hover:border-white pb-1 transition-all">
+                <i class="fas fa-cube mr-1"></i> 3D Map
+            </button>
 
-                <!-- Tools Dropdown Wrapper -->
-                <div class="relative" id="toolsDropdownWrapper">
-                    <button id="tabBtnTools" onclick="toggleToolsDropdown()" class="nav-tab text-white opacity-70 hover:opacity-100 font-bold border-b-2 border-transparent hover:border-white pb-1 transition-all flex items-center gap-1 px-2 py-1 text-sm md:text-base whitespace-nowrap">
-                        <i class="fas fa-toolbox mr-1"></i> Tools <i class="fas fa-chevron-down text-[10px] ml-0.5"></i>
+            <!-- Tools dropdown -->
+            <div class="relative" id="toolsDropdownWrapper">
+                <button id="tabBtnTools" onclick="toggleToolsDropdown()" class="text-white opacity-70 hover:opacity-100 font-bold border-b-2 border-transparent hover:border-white pb-1 transition-all flex items-center gap-1">
+                    <i class="fas fa-toolbox mr-1"></i> Enterprise Use Cases <i class="fas fa-chevron-down text-[10px] ml-1"></i>
+                </button>
+                <div id="toolsDropdown" class="hidden absolute left-1/2 -translate-x-1/2 mt-3 w-64 bg-white rounded-xl shadow-2xl overflow-hidden text-gray-700 border border-gray-100 z-[9999]">
+                    <button onclick="switchMainTab('cctv')" class="w-full text-left px-4 py-3 hover:bg-blue-50 flex items-center gap-3 border-b border-gray-100 transition-colors">
+                        <div class="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center"><i class="fas fa-video text-blue-600 text-sm"></i></div>
+                        <div><div class="font-bold text-sm text-gray-800">CCTV Planning</div><div class="text-[11px] text-gray-400">Site coverage & camera placement</div></div>
                     </button>
-                    <div id="toolsDropdown" class="hidden fixed z-[9999] mt-2 w-56 bg-white rounded-xl shadow-2xl overflow-hidden text-gray-700 border border-gray-100" style="top: auto;">
-                        <button onclick="switchMainTab('cctv')" class="w-full text-left px-4 py-3 hover:bg-blue-50 flex items-center gap-3 border-b border-gray-100 transition-colors">
-                            <div class="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center"><i class="fas fa-video text-blue-600 text-sm"></i></div>
-                            <div><div class="font-bold text-sm text-gray-800">CCTV Planning</div><div class="text-[11px] text-gray-400">Site coverage & camera placement</div></div>
-                        </button>
-                        <button onclick="switchMainTab('bitcoin')" class="w-full text-left px-4 py-3 hover:bg-amber-50 flex items-center gap-3 transition-colors">
-                            <div class="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center"><i class="fab fa-bitcoin text-amber-600 text-sm"></i></div>
-                            <div><div class="font-bold text-sm text-gray-800">Illegal Mining</div><div class="text-[11px] text-gray-400">Anomaly detection</div></div>
-                        </button>
-                    </div>
+                    <button onclick="switchMainTab('bitcoin')" class="w-full text-left px-4 py-3 hover:bg-amber-50 flex items-center gap-3 transition-colors">
+                        <div class="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center"><i class="fab fa-bitcoin text-amber-600 text-sm"></i></div>
+                        <div><div class="font-bold text-sm text-gray-800">Illegal Bitcoin Mining</div><div class="text-[11px] text-gray-400">Anomaly detection candidates</div></div>
+                    </button>
                 </div>
             </div>
         </div>
 
-        <!-- Right Actions (User Menu, Messages, etc) -->
-        <div class="flex items-center gap-1 md:gap-2 flex-shrink-0">
+        <div class="flex items-center gap-3">
             {% if role == 'Admin' %}
-            <a href="/iam" class="bg-white/20 hover:bg-white/30 text-white p-2 rounded-lg transition-all hover:scale-105" title="User Management">
-                <i class="fas fa-shield-alt text-base md:text-lg"></i>
+            <a href="/iam" class="bg-white/20 hover:bg-white/30 text-white p-2.5 rounded-lg transition-all duration-300 shadow-lg hover:scale-110" title="User Management (IAM)">
+                <i class="fas fa-shield-alt text-lg"></i>
             </a>
             {% endif %}
 
-            <button onclick="openMessagingModal()" class="relative bg-white/20 hover:bg-white/30 text-white p-2 rounded-lg transition-all hover:scale-105" title="Messages">
-                <i class="fas fa-envelope text-base md:text-lg"></i>
+            <button onclick="openMessagingModal()" class="relative bg-white/20 hover:bg-white/30 text-white p-2.5 rounded-lg transition-all duration-300 shadow-lg hover:scale-110" title="Messages">
+                <i class="fas fa-envelope text-lg"></i>
                 <span id="navUnreadBadge" class="hidden absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1 font-bold">0</span>
             </button>
 
-            <button onclick="openReviewModal()" class="bg-white/20 hover:bg-white/30 text-white p-2 rounded-lg transition-all hover:scale-105" title="Submit Review">
-                <i class="fas fa-star text-base md:text-lg"></i>
+            <button onclick="openReviewModal()" class="bg-white/20 hover:bg-white/30 text-white p-2.5 rounded-lg transition-all duration-300 shadow-lg hover:scale-110" title="Submit a Review">
+                <i class="fas fa-star text-lg"></i>
             </button>
 
-            <div class="relative ml-1">
-                <button id="menuBtn" class="bg-white text-blue-600 px-3 md:px-4 py-1.5 md:py-2 rounded-lg font-bold hover:bg-gray-100 transition flex items-center gap-1 shadow-lg text-sm md:text-base whitespace-nowrap">
-                    <i class="fas fa-user-circle"></i> <span class="hidden sm:inline">{{ username }}</span> <i class="fas fa-chevron-down text-xs ml-0.5"></i>
+            <div class="relative ml-2">
+                <button id="menuBtn" class="bg-white text-blue-600 px-4 py-2 rounded-lg font-bold hover:bg-gray-100 transition flex items-center gap-2 shadow-lg">
+                    <i class="fas fa-user-circle"></i> {{ username }} <i class="fas fa-chevron-down text-xs ml-1"></i>
                 </button>
-                <div id="menuDropdown" class="hidden fixed z-[9999] mt-2 w-48 bg-white rounded-lg shadow-xl overflow-hidden text-gray-700 border border-gray-100" style="top: auto;">
-                    <button onclick="openSettingsModal()" class="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-center gap-2 border-b border-gray-50"><i class="fas fa-cog text-gray-400"></i> Settings</button>
+                <div id="menuDropdown" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl overflow-hidden text-gray-700 border border-gray-100">
+                    <button onclick="openSettingsModal()" class="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-center gap-2 border-b border-gray-50"><i class="fasfa-cog text-gray-400"></i> Settings</button>
                     <a href="/logout" class="block px-4 py-3 hover:bg-red-50 text-red-600 flex items-center gap-2"><i class="fas fa-sign-out-alt"></i> Logout</a>
                 </div>
             </div>
@@ -1707,60 +1658,10 @@
             }
         }
 
-        // Improved dropdown toggle with position calculation
         function toggleToolsDropdown() {
             const dd = document.getElementById('toolsDropdown');
-            const btn = document.getElementById('tabBtnTools');
-            
-            if (dd.classList.contains('hidden')) {
-                // Calculate position relative to button
-                const rect = btn.getBoundingClientRect();
-                dd.style.position = 'fixed';
-                dd.style.top = (rect.bottom + window.scrollY + 4) + 'px';
-                dd.style.left = (rect.left + window.scrollX) + 'px';
-                dd.style.minWidth = rect.width + 'px';
-                dd.classList.remove('hidden');
-                
-                // Close when clicking outside
-                setTimeout(() => {
-                    document.addEventListener('click', function closeTools(e) {
-                        if (!dd.contains(e.target) && !btn.contains(e.target)) {
-                            dd.classList.add('hidden');
-                            document.removeEventListener('click', closeTools);
-                        }
-                    });
-                }, 0);
-            } else {
-                dd.classList.add('hidden');
-            }
+            dd.classList.toggle('hidden');
         }
-        
-        // Update menu dropdown to use fixed positioning
-        document.addEventListener('DOMContentLoaded', function() {
-            const menuBtn = document.getElementById('menuBtn');
-            const menuDropdown = document.getElementById('menuDropdown');
-            
-            if (menuBtn && menuDropdown) {
-                menuBtn.addEventListener('click', function(e) {
-                    e.stopPropagation();
-                    if (menuDropdown.classList.contains('hidden')) {
-                        const rect = menuBtn.getBoundingClientRect();
-                        menuDropdown.style.position = 'fixed';
-                        menuDropdown.style.top = (rect.bottom + window.scrollY + 4) + 'px';
-                        menuDropdown.style.right = (window.innerWidth - rect.right + window.scrollX) + 'px';
-                        menuDropdown.classList.remove('hidden');
-                    } else {
-                        menuDropdown.classList.add('hidden');
-                    }
-                });
-                
-                document.addEventListener('click', function(e) {
-                    if (!menuBtn.contains(e.target) && !menuDropdown.contains(e.target)) {
-                        menuDropdown.classList.add('hidden');
-                    }
-                });
-            }
-        });
 
         // Close tools dropdown when clicking outside
         document.addEventListener('click', function(e) {
