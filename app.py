@@ -13,7 +13,7 @@ import requests
 from functools import wraps
 
 # --- AI AGENT IMPORT ---
-# from agent.router import ask_vibe_agent
+from agent import run_netalytics_agent
 
 # --- PLOTLY & BOKEH IMPORTS ---
 from sklearn.linear_model import LinearRegression
@@ -30,6 +30,8 @@ from psycopg2.extras import execute_values
 from contextlib import contextmanager
 from flask import session, url_for
 
+import jwt
+
 # --- AUTH MODULE ---
 from auth import (
     authenticate_user, register_user, login_required, role_required,
@@ -43,6 +45,9 @@ app.secret_key = os.environ.get('SECRET_KEY', 'vibe-production-secret-key-2026')
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=24)
+
+METABASE_SITE_URL = os.environ.get('METABASE_URL', 'https://qdt-ai.com:8088') # Or your actual Metabase URL
+METABASE_SECRET_KEY = os.environ.get('METABASE_SECRET_KEY', '8ae5c543ec8f19731d2ceb89e16bf69b1b12dfef062948fd33aba308d0a32980') # Get this from Metabase Admin Settings
 
 # --- POSTGRES DB CONFIG ---
 DB_CONFIG = {
@@ -1744,9 +1749,98 @@ def download_congested():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/chat', methods=['POST'])
-def chat_endpoint():
-    return jsonify({"reply": "The VIBE AI Agent is temporarily offline for architectural upgrades.", "status": "success"})
+@login_required # Ensure only authenticated users can use the AI
+def chat_agent():
+    data = request.json
+    user_prompt = data.get('message', '').strip()
+    week = data.get('week', 'All')
 
+    # 1. ADD THIS LINE: Grab the logged-in user's ID to use as the memory thread
+    thread_id = str(session.get('user_id', 'default_session'))
+
+    if not user_prompt:
+        return jsonify({"error": "Empty message"}), 400
+
+    # ---------------------------------------------------------
+    # 1. GENERATE EMBEDDING (Convert text to vector math)
+    # ---------------------------------------------------------
+    prompt_embedding = None
+    try:
+        embed_res = requests.post("http://vibe_ollama:11434/api/embeddings", json={
+            "model": "nomic-embed-text",
+            "prompt": user_prompt
+        }, timeout=5)
+        if embed_res.status_code == 200:
+            prompt_embedding = embed_res.json().get('embedding')
+    except Exception as e:
+        print(f"[AI Cache] Embedding generation failed: {e}")
+
+    # ---------------------------------------------------------
+    # 2. HYBRID SEMANTIC CACHE (Vector + Keyword)
+    # ---------------------------------------------------------
+    embedding_str = None
+    if prompt_embedding:
+        embedding_str = f"[{','.join(map(str, prompt_embedding))}]"
+        
+        try:
+            with get_db_connection() as conn:
+                with conn.cursor() as cursor:
+                    # Automatically hunt for Site IDs (e.g., 1712H, KUL_01) in the user's message
+                    import re
+                    # This regex grabs uppercase alphanumeric words between 4 and 10 characters
+                    detected_site_ids = re.findall(r'\b[A-Z0-9_]{4,10}\b', user_prompt.upper())
+                    
+                    # Base fuzzy vector search (95% similarity)
+                    check_query = """
+                        SELECT ai_response, 1 - (prompt_embedding <=> %s::vector) AS similarity
+                        FROM ai_semantic_cache
+                        WHERE 1 - (prompt_embedding <=> %s::vector) > 0.95
+                    """
+                    params = [embedding_str, embedding_str]
+                    
+                    # STRICT LOCK: If the user mentioned a Site ID, force the cached question to have it too!
+                    for sid in detected_site_ids:
+                        check_query += " AND UPPER(user_prompt) LIKE %s"
+                        params.append(f"%{sid}%")
+                        
+                    check_query += " ORDER BY similarity DESC LIMIT 1;"
+                    
+                    cursor.execute(check_query, params)
+                    cached_result = cursor.fetchone()
+
+                    if cached_result:
+                        print(f"[AI Cache] HYBRID HIT! Similarity: {cached_result[1]:.4f}")
+                        return jsonify({"reply": cached_result[0], "cached": True})
+
+        except Exception as e:
+            print(f"[AI Cache] DB Read Error: {e}")
+
+    # ---------------------------------------------------------
+    # 3. NO CACHE HIT -> TRIGGER LLAMA 3.2 (LANGGRAPH AGENT)
+    # ---------------------------------------------------------
+    print("[AI Cache] MISS. Waking up Llama 3.2...")
+
+    # Execute the actual LangGraph Agent
+    ai_response = run_netalytics_agent(user_prompt, week, thread_id)
+
+    # ---------------------------------------------------------
+    # 4. SAVE NEW ANSWER TO CACHE FOR THE NEXT USER
+    # ---------------------------------------------------------
+    if prompt_embedding and ai_response:
+        try:
+            # FIX: Use the 'with' statement for the context manager!
+            with get_db_connection() as conn:
+                with conn.cursor() as cursor:
+                    insert_query = """
+                        INSERT INTO ai_semantic_cache (user_prompt, prompt_embedding, ai_response)
+                        VALUES (%s, %s::vector, %s)
+                    """
+                    cursor.execute(insert_query, (user_prompt, embedding_str, ai_response))
+            print("[AI Cache] New response saved to pgvector.")
+        except Exception as e:
+            print(f"[AI Cache] DB Write Error: {e}")
+
+    return jsonify({"reply": ai_response, "cached": False})
 
 # =====================================================================
 # CCTV PLANNING PIPELINE (runs cctv2.py via PyQGIS processing)
@@ -1811,6 +1905,37 @@ def api_cctv_run():
     except Exception as e:
         print(traceback.format_exc())
         return jsonify({'error': str(e)}), 500
+
+@app.route('/api/dashboard/embed')
+@api_login_required
+def get_metabase_embed():
+    """Generates a secure JWT token for Metabase dashboard embedding"""
+    dashboard_id = request.args.get('dashboard_id', type=int)
+
+    if not dashboard_id:
+        return jsonify({"error": "Dashboard ID required"}), 400
+
+    try:
+        # Build the payload for the JWT token
+        payload = {
+            "resource": {"dashboard": dashboard_id},
+            "params": {},
+            "exp": round(time.time()) + (60 * 10) # 10 minute expiration
+        }
+
+        # Sign the token using your Metabase Secret Key
+        token = jwt.encode(payload, METABASE_SECRET_KEY, algorithm="HS256")
+
+        # Construct the final iframe URL
+        iframe_url = f"{METABASE_SITE_URL}/embed/dashboard/{token}#bordered=false&titled=false&theme=night"
+
+        # FIX: Changed "embed_url" to "iframeUrl" to match your frontend JS!
+        return jsonify({"iframeUrl": iframe_url})
+
+    except Exception as e:
+        print(f"Metabase Token Error: {e}")
+        traceback.print_exc()
+        return jsonify({"error": "Failed to generate dashboard secure link"}), 500
 
 
 if __name__ == '__main__':
