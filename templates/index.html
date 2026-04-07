@@ -402,16 +402,16 @@
         </div>
 
         <div class="flex gap-1 sm:gap-3 absolute left-1/2 transform -translate-x-1/2 items-center">
-          <button id="tabBtnMap" onclick="switchMainTab('map')" class="text-white font-bold border-b-2 border-white pb-1 transition-all whitespace-nowrap text-xs sm:text-sm">
-              <i class="fas fa-map-marked-alt mr-1"></i><span class="hidden sm:inline">Coverage </span>Map
-          </button>
           <button id="tabBtnDashboard" onclick="switchMainTab('dashboard')" class="text-white opacity-70 hover:opacity-100 font-bold border-b-2 border-transparent hover:border-white pb-1 transition-all whitespace-nowrap text-xs sm:text-sm">
               <i class="fas fa-chart-line mr-1"></i><span class="hidden sm:inline">RAN </span>Forecast
+          </button>
+          <button id="tabBtnMap" onclick="switchMainTab('map')" class="text-white font-bold border-b-2 border-white pb-1 transition-all whitespace-nowrap text-xs sm:text-sm">
+              <i class="fas fa-map-marked-alt mr-1"></i><span class="hidden sm:inline">Coverage </span>Map
           </button>
           <!-- Tools dropdown -->
           <div class="relative" id="toolsDropdownWrapper">
               <button id="tabBtnTools" onclick="toggleToolsDropdown()" class="text-white opacity-70 hover:opacity-100 font-bold border-b-2 border-transparent hover:border-white pb-1 transition-all flex items-center gap-1 whitespace-nowrap text-xs sm:text-sm">
-                  <i class="fas fa-toolbox mr-1"></i><span class="hidden md:inline">Enterprise </span><i class="fas fa-chevron-down text-[10px] ml-1"></i>
+                  <i class="fas fa-toolbox mr-1"></i><span class="hidden md:inline">Enterprise </span>Use Cases <i class="fas fa-chevron-down text-[10px] ml-1"></i>
               </button>
               <div id="toolsDropdown" class="hidden absolute left-1/2 -translate-x-1/2 mt-3 w-64 bg-white rounded-xl shadow-2xl overflow-hidden text-gray-700 border border-gray-100 z-[9999]">
                   <button onclick="switchMainTab('cctv')" class="w-full text-left px-4 py-3 hover:bg-blue-50 flex items-center gap-3 border-b border-gray-100 transition-colors">
@@ -5291,9 +5291,12 @@
                 const buildings = await Cesium.createOsmBuildingsAsync();
                 cesiumViewer.scene.primitives.add(buildings);
 
-                cesiumViewer.camera.flyTo({
-                    destination: Cesium.Cartesian3.fromDegrees(101.6869, 3.1390, 1500)
-                });
+                // Only fly to the default position if no pegman drop is pending
+                if (!window._pegmanPendingDrop) {
+                    cesiumViewer.camera.flyTo({
+                        destination: Cesium.Cartesian3.fromDegrees(101.6869, 3.1390, 1500)
+                    });
+                }
 
                 setCesiumStatus('3D viewer ready', 'fas fa-check-circle', 3000);
                 // Show the "Load Cell Sites" button
@@ -5605,6 +5608,9 @@
                 const containerPoint = window.map.mouseEventToContainerPoint({ clientX, clientY });
                 const latlng         = window.map.containerPointToLatLng(containerPoint);
 
+                // Store pending destination so initCesiumIfNeeded skips the default flyTo
+                window._pegmanPendingDrop = { lng: latlng.lng, lat: latlng.lat };
+
                 // Switch to 3D tab and fly there
                 switchMainTab('3d');
 
@@ -5614,6 +5620,7 @@
                         setTimeout(flyWhenReady, 200);
                         return;
                     }
+                    window._pegmanPendingDrop = null; // clear the pending flag
                     cesiumViewer.camera.flyTo({
                         destination : Cesium.Cartesian3.fromDegrees(latlng.lng, latlng.lat, 300),
                         orientation : {
@@ -5666,16 +5673,11 @@
         function add3dSiteMarkers() {
             if (!cesiumViewer || !siteDataCache) return;
 
-            const TOWER_HEIGHT = 40;       // meters
-            const POLE_RADIUS  = 0.4;      // meters
-            const PANEL_WIDTH  = 0.6;      // meters
-            const PANEL_HEIGHT = 1.8;      // meters
-            const PANEL_DEPTH  = 0.25;     // meters
-            const PANEL_OFFSET = 1.2;      // meters from center
-            const BEAM_LENGTH  = 300;      // meters (visual beam length)
-            const BEAM_WIDTH_DEG = 30;     // degrees (visual beam half-angle)
+            const DEFAULT_HEIGHT = 30;  // fallback if antenna_height is missing (meters)
+            const CYLINDER_RADIUS = 1.2; // meters
+            const BEAM_LENGTH     = 300; // meters (visual sector beam length)
 
-            // Tech colors for sector beams
+            // Tech colours for sector beams
             const TECH_COLORS = {
                 '5G': Cesium.Color.YELLOW.withAlpha(0.25),
                 '4G': Cesium.Color.CORNFLOWERBLUE.withAlpha(0.20),
@@ -5683,17 +5685,15 @@
                 '2G': Cesium.Color.GRAY.withAlpha(0.15)
             };
 
-            const TECH_BEAM_HEIGHTS = {
-                '5G': { bottom: TOWER_HEIGHT - 2, top: TOWER_HEIGHT + 8 },
-                '4G': { bottom: TOWER_HEIGHT - 4, top: TOWER_HEIGHT + 6 },
-                '3G': { bottom: TOWER_HEIGHT - 5, top: TOWER_HEIGHT + 4 },
-                '2G': { bottom: TOWER_HEIGHT - 6, top: TOWER_HEIGHT + 3 }
-            };
-
             siteDataCache.forEach(site => {
                 if (!site.lat || !site.lng) return;
                 const lng = parseFloat(site.lng);
                 const lat = parseFloat(site.lat);
+
+                // Use per-site antenna_height from Athena, fallback to default
+                const towerH = (site.antenna_height && site.antenna_height > 0)
+                    ? parseFloat(site.antenna_height)
+                    : DEFAULT_HEIGHT;
 
                 // --- Congestion check ---
                 let isCongested = false;
@@ -5707,85 +5707,20 @@
                     }
                 }
 
-                const towerColor = isCongested
+                const cylinderColor = isCongested
                     ? Cesium.Color.fromCssColorString('#dc2626')
                     : Cesium.Color.fromCssColorString('#6b7280');
-                const panelColor = isCongested
-                    ? Cesium.Color.fromCssColorString('#fca5a5')
-                    : Cesium.Color.fromCssColorString('#e5e7eb');
 
-                // ====== TOWER POLE (cylinder) ======
+                // ====== SINGLE CYLINDER ======
                 cesiumViewer.entities.add({
-                    position: Cesium.Cartesian3.fromDegrees(lng, lat, TOWER_HEIGHT / 2),
+                    position: Cesium.Cartesian3.fromDegrees(lng, lat, towerH / 2),
                     cylinder: {
-                        length: TOWER_HEIGHT,
-                        topRadius: POLE_RADIUS * 0.6,
-                        bottomRadius: POLE_RADIUS,
-                        material: towerColor,
+                        length: towerH,
+                        topRadius: CYLINDER_RADIUS * 0.55,
+                        bottomRadius: CYLINDER_RADIUS,
+                        material: cylinderColor,
                         heightReference: Cesium.HeightReference.RELATIVE_TO_GROUND
                     }
-                });
-
-                // ====== LATTICE CROSS-BRACES (visual detail) ======
-                for (let h = 5; h < TOWER_HEIGHT; h += 8) {
-                    cesiumViewer.entities.add({
-                        position: Cesium.Cartesian3.fromDegrees(lng, lat, h),
-                        cylinder: {
-                            length: 0.3,
-                            topRadius: POLE_RADIUS * 1.8,
-                            bottomRadius: POLE_RADIUS * 1.8,
-                            material: towerColor.withAlpha(0.6),
-                            heightReference: Cesium.HeightReference.RELATIVE_TO_GROUND
-                        }
-                    });
-                }
-
-                // ====== PLATFORM AT TOP ======
-                cesiumViewer.entities.add({
-                    position: Cesium.Cartesian3.fromDegrees(lng, lat, TOWER_HEIGHT),
-                    cylinder: {
-                        length: 0.4,
-                        topRadius: 2.0,
-                        bottomRadius: 2.0,
-                        material: towerColor.withAlpha(0.8),
-                        heightReference: Cesium.HeightReference.RELATIVE_TO_GROUND
-                    }
-                });
-
-                // ====== ANTENNA PANELS & SECTOR BEAMS ======
-                // Collect unique azimuths from coverage data
-                const azimuths = new Set();
-                if (site.coverage && site.coverage.length > 0) {
-                    site.coverage.forEach(sec => azimuths.add(parseFloat(sec.az)));
-                } else if (site.sectors && site.sectors.length > 0) {
-                    // Fallback: distribute evenly if no coverage data
-                    const count = Math.min(site.sectors.length, 3);
-                    for (let i = 0; i < count; i++) azimuths.add(i * (360 / count));
-                } else {
-                    // Default 3-sector
-                    [0, 120, 240].forEach(a => azimuths.add(a));
-                }
-
-                azimuths.forEach(az => {
-                    const azRad = Cesium.Math.toRadians(az);
-
-                    // Offset the panel from tower center
-                    const panelLng = lng + (PANEL_OFFSET / 111320) * Math.sin(azRad) / Math.cos(Cesium.Math.toRadians(lat));
-                    const panelLat = lat + (PANEL_OFFSET / 111320) * Math.cos(azRad);
-
-                    // Antenna panel box
-                    cesiumViewer.entities.add({
-                        position: Cesium.Cartesian3.fromDegrees(panelLng, panelLat, TOWER_HEIGHT + 0.5),
-                        box: {
-                            dimensions: new Cesium.Cartesian3(PANEL_WIDTH, PANEL_DEPTH, PANEL_HEIGHT),
-                            material: panelColor,
-                            heightReference: Cesium.HeightReference.RELATIVE_TO_GROUND
-                        },
-                        orientation: Cesium.Transforms.headingPitchRollQuaternion(
-                            Cesium.Cartesian3.fromDegrees(panelLng, panelLat, TOWER_HEIGHT + 0.5),
-                            new Cesium.HeadingPitchRoll(Cesium.Math.toRadians(az), 0, 0)
-                        )
-                    });
                 });
 
                 // ====== SECTOR BEAMS FROM COVERAGE DATA ======
@@ -5800,24 +5735,24 @@
                     Object.entries(azGroups).forEach(([azStr, sectors]) => {
                         const az = parseFloat(azStr);
                         sectors.forEach(sec => {
-                            const tech = sec.tech || '4G';
+                            const tech    = sec.tech || '4G';
                             const beamColor = TECH_COLORS[tech] || TECH_COLORS['4G'];
-                            const heights = TECH_BEAM_HEIGHTS[tech] || TECH_BEAM_HEIGHTS['4G'];
-                            const bw = (sec.bw || 65) / 2;
+                            const bw      = (sec.bw || 65) / 2;
                             const beamLen = Math.min(sec.rad || BEAM_LENGTH, 500);
+                            // Beam fans out from the cylinder top
+                            const beamTop    = towerH + 2;
+                            const beamBottom = Math.max(towerH - 6, 0);
 
-                            // Create a fan of points for the beam polygon
                             const beamPoints = [];
-                            // Origin at tower top
-                            beamPoints.push(Cesium.Cartesian3.fromDegrees(lng, lat, heights.top));
+                            beamPoints.push(Cesium.Cartesian3.fromDegrees(lng, lat, beamTop));
 
                             const steps = 8;
                             for (let i = 0; i <= steps; i++) {
-                                const angle = az - bw + (2 * bw * i / steps);
+                                const angle    = az - bw + (2 * bw * i / steps);
                                 const angleRad = Cesium.Math.toRadians(angle);
-                                const endLng = lng + (beamLen / 111320) * Math.sin(angleRad) / Math.cos(Cesium.Math.toRadians(lat));
-                                const endLat = lat + (beamLen / 111320) * Math.cos(angleRad);
-                                beamPoints.push(Cesium.Cartesian3.fromDegrees(endLng, endLat, heights.bottom));
+                                const endLng   = lng + (beamLen / 111320) * Math.sin(angleRad) / Math.cos(Cesium.Math.toRadians(lat));
+                                const endLat   = lat + (beamLen / 111320) * Math.cos(angleRad);
+                                beamPoints.push(Cesium.Cartesian3.fromDegrees(endLng, endLat, beamBottom));
                             }
 
                             cesiumViewer.entities.add({
@@ -5834,24 +5769,9 @@
                     });
                 }
 
-                // ====== AVIATION WARNING LIGHT ======
-                cesiumViewer.entities.add({
-                    position: Cesium.Cartesian3.fromDegrees(lng, lat, TOWER_HEIGHT + 2.5),
-                    point: {
-                        pixelSize: isCongested ? 7 : 5,
-                        color: isCongested
-                            ? Cesium.Color.RED
-                            : Cesium.Color.fromCssColorString('#22c55e'),
-                        outlineColor: Cesium.Color.WHITE,
-                        outlineWidth: 1,
-                        heightReference: Cesium.HeightReference.RELATIVE_TO_GROUND,
-                        scaleByDistance: new Cesium.NearFarScalar(100, 1.5, 50000, 0.3)
-                    }
-                });
-
                 // ====== SITE LABEL ======
                 cesiumViewer.entities.add({
-                    position: Cesium.Cartesian3.fromDegrees(lng, lat, TOWER_HEIGHT + 5),
+                    position: Cesium.Cartesian3.fromDegrees(lng, lat, towerH + 5),
                     label: {
                         text: site.site_id || '',
                         font: 'bold 12px sans-serif',
@@ -5877,6 +5797,7 @@
                         '<tr><td style="padding:6px;font-weight:bold;color:#1d4ed8;">Site ID</td><td style="padding:6px;">' + (site.site_id || '-') + '</td></tr>' +
                         '<tr><td style="padding:6px;font-weight:bold;color:#1d4ed8;">Name</td><td style="padding:6px;">' + (site.site_name || '-') + '</td></tr>' +
                         '<tr><td style="padding:6px;font-weight:bold;color:#1d4ed8;">Region</td><td style="padding:6px;">' + (site.region || '-') + '</td></tr>' +
+                        '<tr><td style="padding:6px;font-weight:bold;color:#1d4ed8;">Antenna Height</td><td style="padding:6px;">' + towerH + ' m</td></tr>' +
                         '<tr><td style="padding:6px;font-weight:bold;color:#1d4ed8;">Status</td><td style="padding:6px;color:' + (isCongested ? '#dc2626;font-weight:bold' : '#059669') + ';">' + (isCongested ? 'CONGESTED' : 'Normal') + '</td></tr>' +
                         (site.sectors ? '<tr><td style="padding:6px;font-weight:bold;color:#1d4ed8;">Sectors</td><td style="padding:6px;">' + site.sectors.length + '</td></tr>' : '') +
                         '</table>'
