@@ -5675,7 +5675,6 @@
             if (!cesiumViewer || !siteDataCache) return;
 
             const DEFAULT_HEIGHT = 30;  // fallback if antenna_height is missing (meters)
-            const CYLINDER_RADIUS = 1.2; // meters
             const BEAM_LENGTH     = 300; // meters (visual sector beam length)
 
             // Tech colours for sector beams
@@ -5708,18 +5707,17 @@
                     }
                 }
 
-                const cylinderColor = isCongested
+                const ballColor = isCongested
                     ? Cesium.Color.fromCssColorString('#dc2626')
-                    : Cesium.Color.fromCssColorString('#6b7280');
+                    : Cesium.Color.fromCssColorString('#22c55e');
 
-                // ====== SINGLE CYLINDER ======
+                // ====== BALL AT ANTENNA HEIGHT ======
+                const BALL_RADIUS = 8; // meters
                 cesiumViewer.entities.add({
-                    position: Cesium.Cartesian3.fromDegrees(lng, lat, towerH / 2),
-                    cylinder: {
-                        length: towerH,
-                        topRadius: CYLINDER_RADIUS * 0.55,
-                        bottomRadius: CYLINDER_RADIUS,
-                        material: cylinderColor,
+                    position: Cesium.Cartesian3.fromDegrees(lng, lat, towerH),
+                    ellipsoid: {
+                        radii: new Cesium.Cartesian3(BALL_RADIUS, BALL_RADIUS, BALL_RADIUS),
+                        material: ballColor,
                         heightReference: Cesium.HeightReference.RELATIVE_TO_GROUND
                     }
                 });
@@ -5740,7 +5738,7 @@
                             const beamColor = TECH_COLORS[tech] || TECH_COLORS['4G'];
                             const bw      = (sec.bw || 65) / 2;
                             const beamLen = Math.min(sec.rad || BEAM_LENGTH, 500);
-                            // Beam fans out from the cylinder top
+                            // Beam fans out from the ball position
                             const beamTop    = towerH + 2;
                             const beamBottom = Math.max(towerH - 6, 0);
 
