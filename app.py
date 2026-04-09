@@ -920,47 +920,66 @@ def list_users_for_assign():
         return jsonify([{'id': r[0], 'username': r[1], 'full_name': r[2], 'role': r[3]} for r in cursor.fetchall()])
 
 def get_pricing_flat():
-    try:
-        with get_db_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT category, action_name, price_myr, price_min, price_max FROM capex_pricing ORDER BY category, action_name;")
-            flat = {}
-            for category, action_name, price_myr, price_min, price_max in cursor.fetchall():
-                flat.setdefault(category, {})[action_name] = {"price": float(price_myr), "min": float(price_min), "max": float(price_max)}
-            return flat
-    except Exception: return {}
+    """Returns full pricing (price + min + max) from S3/local JSON for Admin/Planner."""
+    return get_pricing()
 
 def get_pricing_for_calc():
+    """Returns only flat prices for CAPEX calculation engine."""
     flat = get_pricing_flat()
     return {cat: {name: vals["price"] for name, vals in items.items()} for cat, items in flat.items()}
 
 def get_pricing_ranges():
-    try:
-        with get_db_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT category, action_name, price_min, price_max FROM capex_pricing ORDER BY category, action_name;")
-            ranges = {}
-            for category, action_name, price_min, price_max in cursor.fetchall():
-                ranges.setdefault(category, {})[action_name] = {"min": float(price_min), "max": float(price_max), "display": f"RM {float(price_min):,.2f} \u2013 RM {float(price_max):,.2f}"}
-            return ranges
-    except Exception: return {}
+    """Returns only min/max ranges from S3/local JSON for Staff users."""
+    full = get_pricing()
+    ranges = {}
+    for category, items in full.items():
+        ranges[category] = {}
+        for action_name, vals in items.items():
+            if isinstance(vals, dict) and 'min' in vals and 'max' in vals:
+                price_min = float(vals['min'])
+                price_max = float(vals['max'])
+            else:
+                # Fallback: old flat-price format (no min/max), use price as both
+                p = float(vals) if not isinstance(vals, dict) else float(vals.get('price', 0))
+                price_min = p
+                price_max = p
+            ranges[category][action_name] = {
+                "min": price_min,
+                "max": price_max,
+                "display": f"RM {price_min:,.2f} \u2013 RM {price_max:,.2f}"
+            }
+    return ranges
 
 @app.route('/api/pricing', methods=['GET', 'POST'])
 @api_login_required
 def pricing_endpoint():
     role = session.get('role', 'Staff')
     if request.method == 'POST':
-        if role not in ['Admin', 'Planner']: return jsonify({'error': 'Unauthorized'}), 403
-        try:
-            with get_db_connection() as conn:
-                cursor = conn.cursor()
-                for category, items in request.json.items():
-                    for action_name, vals in items.items():
-                        cursor.execute("UPDATE capex_pricing SET price_myr=%s, price_min=%s, price_max=%s, updated_by=%s WHERE category=%s AND action_name=%s", (vals.get('price',0), vals.get('min',0), vals.get('max',0), session.get('user_id'), category, action_name))
-            return jsonify({"success": True, "message": "Pricing updated successfully!"})
-        except Exception as e: return jsonify({"success": False, "message": str(e)}), 500
+        if role not in ['Admin', 'Planner']:
+            return jsonify({'error': 'Unauthorized'}), 403
 
-    if role in ['Admin', 'Planner']: return jsonify(get_pricing_flat())
+        new_pricing = request.json
+
+        # 1. Save locally (as a backup cache)
+        with open(PRICING_FILE, 'w') as f:
+            json.dump(new_pricing, f, indent=4)
+
+        # 2. Push to S3 so AWS Glue uses the new prices on its next run
+        try:
+            s3_client = aws_session.client('s3')
+            s3_client.put_object(
+                Bucket='neo-advanced-analytics',
+                Key='capex_pricing/capex_pricing.json',
+                Body=json.dumps(new_pricing, indent=4),
+                ContentType='application/json'
+            )
+            return jsonify({"success": True, "message": "Pricing updated successfully and pushed to AWS S3!"})
+        except Exception as e:
+            print(f"Error uploading pricing to S3: {e}")
+            return jsonify({"success": False, "message": f"Saved locally, but failed to sync with AWS: {str(e)}"}), 500
+
+    if role in ['Admin', 'Planner']:
+        return jsonify(get_pricing_flat())
     return jsonify(get_pricing_ranges())
 
 # --- ATHENA DATA ENDPOINTS ---
@@ -1493,31 +1512,6 @@ def get_pricing():
         if os.path.exists(PRICING_FILE):
             with open(PRICING_FILE, 'r') as f: return json.load(f)
         return DEFAULT_PRICING
-
-@app.route('/api/pricing', methods=['GET', 'POST'])
-def handle_pricing():
-    if request.method == 'POST':
-        new_pricing = request.json
-        
-        # 1. Save Locally (as a backup cache)
-        with open(PRICING_FILE, 'w') as f: 
-            json.dump(new_pricing, f, indent=4)
-            
-        # 2. Push to S3 so AWS Glue uses the new prices on its next run!
-        try:
-            s3_client = aws_session.client('s3')
-            s3_client.put_object(
-                Bucket='neo-advanced-analytics',
-                Key='capex_pricing/capex_pricing.json',
-                Body=json.dumps(new_pricing, indent=4),
-                ContentType='application/json'
-            )
-            return jsonify({"success": True, "message": "Pricing updated successfully and pushed to AWS S3!"})
-        except Exception as e:
-            print(f"Error uploading pricing to S3: {e}")
-            return jsonify({"success": False, "message": f"Saved locally, but failed to sync with AWS: {str(e)}"}), 500
-
-    return jsonify(get_pricing())
 
 def recalculate_live_capex(row, pricing):
     case_str = str(row.get('suggested_upgrade_case', ''))
