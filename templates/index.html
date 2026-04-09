@@ -3243,28 +3243,11 @@
         }
 
         function getAnnulusSector(lat, lng, azimuth, innerRadiusM, outerRadiusM, beamwidth) {
-            const R = 6378137;
-            const startAngle = (azimuth - beamwidth / 2) * (Math.PI / 180);
-            const endAngle = (azimuth + beamwidth / 2) * (Math.PI / 180);
-            const latRad = lat * (Math.PI / 180), lngRad = lng * (Math.PI / 180);
-            function getPoint(radMeters, angle) {
-                const d = radMeters / R;
-                const pLat = Math.asin(Math.sin(latRad) * Math.cos(d) + Math.cos(latRad) * Math.sin(d) * Math.cos(angle));
-                const pLng = lngRad + Math.atan2(Math.sin(angle) * Math.sin(d) * Math.cos(latRad), Math.cos(d) - Math.sin(latRad) * Math.sin(pLat));
-                return [pLat * (180 / Math.PI), pLng * (180 / Math.PI)];
-            }
-
+            const R = 6378137; const startAngle = (azimuth - beamwidth / 2) * (Math.PI / 180); const endAngle = (azimuth + beamwidth / 2) * (Math.PI / 180); const latRad = lat * (Math.PI / 180), lngRad = lng * (Math.PI / 180);
+            function getPoint(radMeters, angle) { const d = radMeters / R; const pLat = Math.asin(Math.sin(latRad) * Math.cos(d) + Math.cos(latRad) * Math.sin(d) * Math.cos(angle)); const pLng = lngRad + Math.atan2(Math.sin(angle) * Math.sin(d) * Math.cos(latRad), Math.cos(d) - Math.sin(latRad) * Math.sin(pLat)); return [pLat * (180 / Math.PI), pLng * (180 / Math.PI)]; }
             const points = [];
-            for (let i = 0; i <= 10; i++)
-                points.push(getPoint(outerRadiusM, startAngle + (endAngle - startAngle) * (i / 10)));
-
-            if (innerRadiusM > 0) {
-                for (let i = 10; i >= 0; i--)
-                    points.push(getPoint(innerRadiusM, startAngle + (endAngle - startAngle) * (i / 10)));
-            } else {
-                points.push([lat, lng]);
-            }
-
+            for (let i = 0; i <= 10; i++) points.push(getPoint(outerRadiusM, startAngle + (endAngle - startAngle) * (i / 10)));
+            if (innerRadiusM > 0) { for (let i = 10; i >= 0; i--) points.push(getPoint(innerRadiusM, startAngle + (endAngle - startAngle) * (i / 10))); } else { points.push([lat, lng]); }
             return points;
         }
 
