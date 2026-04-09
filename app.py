@@ -920,8 +920,24 @@ def list_users_for_assign():
         return jsonify([{'id': r[0], 'username': r[1], 'full_name': r[2], 'role': r[3]} for r in cursor.fetchall()])
 
 def get_pricing_flat():
-    """Returns full pricing (price + min + max) from S3/local JSON for Admin/Planner."""
-    return get_pricing()
+    """Returns full pricing (price + min + max) from S3/local JSON for Admin/Planner.
+       Normalizes old flat-number format into {price, min, max} if needed."""
+    raw = get_pricing()
+    normalized = {}
+    for category, items in raw.items():
+        normalized[category] = {}
+        for action_name, vals in items.items():
+            if isinstance(vals, dict):
+                normalized[category][action_name] = {
+                    "price": float(vals.get("price", 0)),
+                    "min": float(vals.get("min", 0)),
+                    "max": float(vals.get("max", 0))
+                }
+            else:
+                # Old flat-number format: use the number as price, min, and max
+                p = float(vals)
+                normalized[category][action_name] = {"price": p, "min": p, "max": p}
+    return normalized
 
 def get_pricing_for_calc():
     """Returns only flat prices for CAPEX calculation engine."""
@@ -1475,30 +1491,32 @@ def plot_route():
 
 # --- ADMIN PRICING LOGIC (KEPT INTACT) ---
 DEFAULT_PRICING = {
-    "EQ": { "BW Upg": 2500.00,
-            "Add Layer": 38877.25,
-            "Bi-Sect Radio": 47119.72,
-            "Bi-Sect Antenna + Accessory": 6000.00,
-            "MM": 83637.42,
-            "Swap all Sector Radio Ericsson to ZTE": 120000.00,
-            "Add Sector Outdoor": 40000.00,
-            "Add Sector IBC": 10000.00,
-            "Accelerate NIC": 62000.00,
-            "NNS": 250000.00,
-            "Split Omni to Sector": 116631.75
-            },
-    "ES": { "BW Upg": 1350.00,
-            "Add Layer": 32000.00,
-            "Bi-Sect": 34000.00,
-            "MM": 36000.00,
-            "Dismantle": 25000.00,
-            "Split Omni to Sector": 40000.00,
-            "Swap all sector radio Ericsson to ZTE": 40000.00,
-            "Add Sector Outdoor": 13000.00,
-            "Add Sector IBC": 13000.00,
-            "Accelerate NIC": 24000.00,
-            "NNS": 40000.00
-            }
+    "EQ": {
+        "Accelerate NIC": {"price": 65000.00, "min": 50000.00, "max": 80000.00},
+        "Add Layer": {"price": 30000.00, "min": 10000.00, "max": 50000.00},
+        "Add Sector IBC": {"price": 20000.00, "min": 1000.00, "max": 40000.00},
+        "Add Sector Outdoor": {"price": 40000.00, "min": 10000.00, "max": 70000.00},
+        "BW Upg": {"price": 25000.00, "min": 1000.00, "max": 50000.00},
+        "Bi-Sect Antenna + Accessory": {"price": 15000.00, "min": 1000.00, "max": 30000.00},
+        "Bi-Sect Radio": {"price": 35000.00, "min": 10000.00, "max": 60000.00},
+        "MM": {"price": 60000.00, "min": 20000.00, "max": 100000.00},
+        "NNS": {"price": 290000.00, "min": 80000.00, "max": 500000.00},
+        "Split Omni to Sector": {"price": 225000.00, "min": 50000.00, "max": 400000.00},
+        "Swap all Sector Radio Ericsson to ZTE": {"price": 275000.00, "min": 50000.00, "max": 500000.00}
+    },
+    "ES": {
+        "Accelerate NIC": {"price": 26000.00, "min": 3000.00, "max": 50000.00},
+        "Add Layer": {"price": 32000.00, "min": 5000.00, "max": 60000.00},
+        "Add Sector IBC": {"price": 27000.00, "min": 5000.00, "max": 50000.00},
+        "Add Sector Outdoor": {"price": 32000.00, "min": 5000.00, "max": 60000.00},
+        "BW Upg": {"price": 25000.00, "min": 850.00, "max": 50000.00},
+        "Bi-Sect": {"price": 34000.00, "min": 9000.00, "max": 60000.00},
+        "Dismantle": {"price": 39000.00, "min": 9510.00, "max": 70000.00},
+        "MM": {"price": 35000.00, "min": 9820.00, "max": 60000.00},
+        "NNS": {"price": 40000.00, "min": 10000.00, "max": 70000.00},
+        "Split Omni to Sector": {"price": 40000.00, "min": 9810.00, "max": 70000.00},
+        "Swap all sector radio Ericsson to ZTE": {"price": 41000.00, "min": 9910.00, "max": 72100.00}
+    }
 }
 
 def get_pricing():
