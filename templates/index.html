@@ -1899,8 +1899,8 @@
             const mapChatPnl = document.getElementById('mapChatPanel');
             const pegmanControl = document.getElementById('pegmanControl');
 
-            const inactiveClass = 'text-white opacity-70 hover:opacity-100 font-bold border-b-2 border-transparent hover:border-white pb-1 transition-all';
-            const activeClass = 'text-white font-bold border-b-2 border-white pb-1 transition-all';
+            const inactiveClass = 'text-white opacity-70 hover:opacity-100 font-semibold border-b-2 border-transparent hover:border-white pb-1 transition-all whitespace-nowrap text-sm px-3';
+            const activeClass = 'text-white font-semibold border-b-2 border-white pb-1 transition-all whitespace-nowrap text-sm px-3';
 
             // Hide all views
             if (dashboardView) dashboardView.style.display = 'none';
@@ -3243,11 +3243,28 @@
         }
 
         function getAnnulusSector(lat, lng, azimuth, innerRadiusM, outerRadiusM, beamwidth) {
-            const R = 6378137; const startAngle = (azimuth - beamwidth / 2) * (Math.PI / 180); const endAngle = (azimuth + beamwidth / 2) * (Math.PI / 180); const latRad =lat * (Math.PI / 180), lngRad = lng * (Math.PI / 180);
-            function getPoint(radMeters, angle) { const d = radMeters / R; const pLat = Math.asin(Math.sin(latRad) * Math.cos(d) + Math.cos(latRad) * Math.sin(d) * Math.cos(angle)); const pLng = lngRad + Math.atan2(Math.sin(angle) * Math.sin(d) * Math.cos(latRad), Math.cos(d) - Math.sin(latRad) * Math.sin(pLat)); return [pLat * (180 / Math.PI), pLng * (180 / Math.PI)]; }
+            const R = 6378137;
+            const startAngle = (azimuth - beamwidth / 2) * (Math.PI / 180);
+            const endAngle = (azimuth + beamwidth / 2) * (Math.PI / 180);
+            const latRad = lat * (Math.PI / 180), lngRad = lng * (Math.PI / 180);
+            function getPoint(radMeters, angle) {
+                const d = radMeters / R;
+                const pLat = Math.asin(Math.sin(latRad) * Math.cos(d) + Math.cos(latRad) * Math.sin(d) * Math.cos(angle));
+                const pLng = lngRad + Math.atan2(Math.sin(angle) * Math.sin(d) * Math.cos(latRad), Math.cos(d) - Math.sin(latRad) * Math.sin(pLat));
+                return [pLat * (180 / Math.PI), pLng * (180 / Math.PI)];
+            }
+
             const points = [];
-            for (let i = 0; i <= 10; i++) points.push(getPoint(outerRadiusM, startAngle + (endAngle - startAngle) * (i / 10)));
-            if (innerRadiusM > 0) { for (let i = 10; i >= 0; i--) points.push(getPoint(innerRadiusM, startAngle + (endAngle - startAngle) * (i / 10))); } else { points.push([lat, lng]); }
+            for (let i = 0; i <= 10; i++)
+                points.push(getPoint(outerRadiusM, startAngle + (endAngle - startAngle) * (i / 10)));
+
+            if (innerRadiusM > 0) {
+                for (let i = 10; i >= 0; i--)
+                    points.push(getPoint(innerRadiusM, startAngle + (endAngle - startAngle) * (i / 10)));
+            } else {
+                points.push([lat, lng]);
+            }
+
             return points;
         }
 
@@ -3277,9 +3294,15 @@
                     if (techs[c.tech]) {
                         // FIX 3: Use the actual beamwidth (bw) from Python
                         const bw = techs[c.tech].bw || 65;
-                        const polyPoints = getAnnulusSector(site.lat, site.lng, az, maxRad * c.inner, maxRad * c.outer, bw);
-                        const poly = L.polygon(polyPoints, { color: c.color, weight: 1, fillOpacity: 0.5 });
-                        poly.addTo(c.layer);
+                        const polyPoints = getAnnulusSector(site.lat, site.lng, az, inner, outer, 60);
+                        const poly = L.polygon(polyPoints, {
+                            color: color,
+                            fillColor: color,
+                            weight: 1,
+                            fillOpacity: 0.35
+                        });
+
+                        poly.addTo(layer);
                         if(forceMapAdd) { poly.addTo(map); activeCoverageLayers.push(poly); }
                     }
                 });
